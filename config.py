@@ -9,7 +9,9 @@ if (env_path := HOME_DIR / ".env").exists():
     load_dotenv(env_path, override=True)
 
 CACHE_DIR = HOME_DIR / 'cache'
-FIGURE_DIR = HOME_DIR / 'figures'
+DEBUG_DIR = CACHE_DIR / 'debug'
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
 os.environ["RESULTCACHING_HOME"] = str(CACHE_DIR / "resultcaching")
 os.environ['MMAP_HOME'] = str(CACHE_DIR / 'mmap')
@@ -20,3 +22,6 @@ os.environ['HF_HOME'] = str(CACHE_DIR / 'hf')
 
 os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
+
+DEBUG = True
+RERUN = False

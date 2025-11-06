@@ -13,8 +13,7 @@ from torch.utils.data import DataLoader
 from models import VJEPA, UniFormer, MViTV1
 from topo import TopoTransformedVJEPA, SpatialCorrelationLoss
 from data.smthsmthv2 import SmthSmthV2
-from validate import validate_autocorr, validate_floc
-from validate.floc import VPNL, KANWISHER
+from validate import load_transformed_model, validate_autocorr, validate_floc
 
 
 """
@@ -126,8 +125,8 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 
         # Visualization
         validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, data_path=VPNL, viz_dir=figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, data_path=KANWISHER, viz_dir=figure_dir, epoch=epoch)
+        validate_floc(model, vit_transform, data_path="vpnl", viz_dir=figure_dir, epoch=epoch)
+        validate_floc(model, vit_transform, data_path="kanwisher", viz_dir=figure_dir, epoch=epoch)
         
         # W&B logging
         if use_wandb:
@@ -182,8 +181,13 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 
 if __name__ == '__main__':
     # Config
-    model_name, batch_size, lr, resume_training = 'vjepa', 32, 5e-4, True
-    use_wandb, wandb_project = True, 'tdann-transform'
+    model_name = 'vjepa'
+    batch_size = 32
+    lr = 1e-4
+    num_epochs = 20
+    resume_training = True
+    use_wandb, wandb_project = False, 'tdann-transform'
+    neighborhoods_per_batch = 16
     
     # Data
     data = SmthSmthV2(train_transforms=vit_transform, test_transforms=vit_transform)
@@ -193,10 +197,10 @@ if __name__ == '__main__':
                            num_workers=int(batch_size/1.5), pin_memory=True)
     
     # Model setup
-    model = TopoTransformedVJEPA()
+    model = TopoTransformedVJEPA(layer_indices=list(range(0, 24, 2)))
     config_id = get_config_id(model.name, lr, batch_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    criterion = SpatialCorrelationLoss(model.num_layers)
+    criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch)
     
     # Directories
     storage_path = config.CACHE_DIR / "train_topo" / config_id
@@ -209,7 +213,7 @@ if __name__ == '__main__':
     # Train
     trained_model, train_losses, val_losses = train_model(
         model, train_loader, val_loader, criterion, config_id, storage_path,
-        figure_dir, device, num_epochs=50, lr=lr, resume=resume_training,
+        figure_dir, device, num_epochs=num_epochs, lr=lr, resume=resume_training,
         use_wandb=use_wandb, wandb_project=wandb_project, wandb_run_name=config_id)
     
     # Plot & save

@@ -4,8 +4,7 @@ import os
 import torch
 from torchvision import transforms
 
-from validate import load_transformed_model, validate_autocorr, validate_floc
-from validate.floc import VPNL, KANWISHER
+from validate import load_transformed_model, validate_autocorr, validate_floc, validate_temporal
 
 
 vit_transform = transforms.Compose([
@@ -37,5 +36,10 @@ if __name__ == '__main__':
     figure_dir = config.CACHE_DIR / "figures" / config_id
     figure_dir.mkdir(parents=True, exist_ok=True)
 
-    validate_floc(model, vit_transform, data_path=VPNL, viz_dir=figure_dir, epoch=epoch)
-    validate_floc(model, vit_transform, data_path=KANWISHER, viz_dir=figure_dir, epoch=epoch)
+    viz_params = {
+        'topk_percent': 1,
+    }
+
+    # validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params)
+    validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params)
+    # validate_temporal(model, vit_transform, dataset_name='smthsmthv2', viz_dir=figure_dir, epoch=epoch)

@@ -1,0 +1,87 @@
+from config import CACHE_DIR, DEBUG, RERUN
+
+import os
+import pickle
+import hashlib
+import json
+from pathlib import Path
+from typing import Callable, Optional
+from functools import wraps
+
+
+def _get_cache_key(*args, **kwargs) -> str:
+    """Generate cache key from arguments."""
+    cache_data = {
+        'args': str(args),
+        'kwargs': str(sorted(kwargs.items()))
+    }
+    cache_str = json.dumps(cache_data, sort_keys=True)
+    return hashlib.md5(cache_str.encode()).hexdigest()
+
+
+def cached(
+    cache_name: str,
+    cache_dir: Optional[Path] = None,
+    verbose: bool = True
+):
+    """Decorator for caching function results.
+    
+    Args:
+        cache_name: Name identifier for this cache
+        cache_dir: Optional custom cache directory
+        verbose: Print cache hit/miss messages
+        
+    Usage:
+        @cached('my_computation')
+        def expensive_function(x, y):
+            return x + y
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # If DEBUG is False, always recompute
+            if not DEBUG:
+                if verbose:
+                    print(f"[Cache] DEBUG=False, computing {cache_name}")
+                return func(*args, **kwargs)
+            
+            # Setup cache directory
+            _cache_dir = cache_dir or CACHE_DIR
+            _cache_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate cache file path
+            cache_key = _get_cache_key(*args, **kwargs)
+            cache_file = _cache_dir / f"{cache_name}_{cache_key}.pkl"
+            
+            # If RERUN is True, force recompute
+            if RERUN:
+                if verbose:
+                    print(f"[Cache] RERUN=True, recomputing {cache_name}")
+                result = func(*args, **kwargs)
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(result, f)
+                if verbose:
+                    print(f"[Cache] Saved to {cache_file}")
+                return result
+            
+            # Try to load from cache
+            if cache_file.exists():
+                if verbose:
+                    print(f"[Cache] Loading {cache_name} from {cache_file}")
+                with open(cache_file, 'rb') as f:
+                    return pickle.load(f)
+            
+            # Cache miss - compute and store
+            if verbose:
+                print(f"[Cache] Cache miss, computing {cache_name}")
+            result = func(*args, **kwargs)
+            
+            with open(cache_file, 'wb') as f:
+                pickle.dump(result, f)
+            if verbose:
+                print(f"[Cache] Saved to {cache_file}")
+            
+            return result
+        
+        return wrapper
+    return decorator

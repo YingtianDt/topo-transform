@@ -3,7 +3,7 @@ import config
 import torch
 from topo import TopoTransformedVJEPA
 from .autocorr import validate_autocorr
-from .floc import validate_floc
+from .floc import *
 
 def load_transformed_model(checkpoint_name=None, checkpoint_path=None, device='cuda'):
     """Load a trained TopoTransformedVJEPA model."""
