@@ -182,12 +182,15 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 if __name__ == '__main__':
     # Config
     model_name = 'vjepa'
+    layer_indices = range(8, 24, 2)
     batch_size = 32
     lr = 1e-4
-    num_epochs = 20
-    resume_training = True
-    use_wandb, wandb_project = False, 'tdann-transform'
+    num_epochs = 10
     neighborhoods_per_batch = 16
+    exponentially_interpolate = False
+    constant_rf_overlap = True
+    use_wandb, wandb_project = True, 'tdann-transform'
+    resume_training = True
     
     # Data
     data = SmthSmthV2(train_transforms=vit_transform, test_transforms=vit_transform)
@@ -197,7 +200,7 @@ if __name__ == '__main__':
                            num_workers=int(batch_size/1.5), pin_memory=True)
     
     # Model setup
-    model = TopoTransformedVJEPA(layer_indices=list(range(0, 24, 2)))
+    model = TopoTransformedVJEPA(layer_indices=layer_indices, exponentially_interpolate=exponentially_interpolate, constant_rf_overlap=constant_rf_overlap)   
     config_id = get_config_id(model.name, lr, batch_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch)

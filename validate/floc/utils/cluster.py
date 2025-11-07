@@ -7,6 +7,7 @@ from typing import Tuple, List, Optional
 from dataclasses import dataclass
 import torch
 import os
+from tqdm import tqdm
 
 from spacetorch.utils.spatial_utils import concave_hull
 
@@ -143,7 +144,8 @@ def find_patches_smoothing(
     
     # Smooth selectivity values onto grid
     smoothed = np.zeros((n_anchors, n_anchors))
-    for row in range(n_anchors):
+    pbar = tqdm(range(n_anchors), desc=f"Smoothing {contrast.name}", disable=not verbose)
+    for row in pbar:
         for col in range(n_anchors):
             center = (cx[row, col], cy[row, col])
             dist_from_center = gaussian_2d(positions, center, sigma=sigma)
@@ -196,14 +198,25 @@ def find_patches_for_categories(
     """Find patches for all categories and layers."""
     results = {}
     
-    for cat_name, t_vals_list in t_vals_dict.items():
+    # Progress bar for categories
+    pbar_cats = tqdm(t_vals_dict.items(), desc="Processing categories", disable=not verbose)
+    
+    for cat_name, t_vals_list in pbar_cats:
         if not isinstance(t_vals_list, list):
             t_vals_list = [t_vals_list]
         
         category_patches = []
         contrast = Contrast(name=cat_name, on_categories=[cat_name])
         
-        for layer_idx, t_vals in enumerate(t_vals_list):
+        pbar_cats.set_postfix_str(f"Category: {cat_name}")
+        
+        # Progress bar for layers within each category
+        for layer_idx in tqdm(range(len(t_vals_list)), 
+                              desc=f"  Layers for {cat_name}", 
+                              leave=False,
+                              disable=not verbose):
+            t_vals = t_vals_list[layer_idx]
+            
             if verbose:
                 print(f"\nProcessing {cat_name}, Layer {layer_idx}")
             
@@ -248,6 +261,9 @@ def visualize_all_patches(
         color_map = {cat: colors[i] for i, cat in enumerate(categories)}
     
     # Individual plots for each category and layer
+    total_plots = sum(len(patches_by_layer) for patches_by_layer in patch_results.values())
+    pbar = tqdm(total=total_plots, desc="Creating individual plots")
+    
     for cat_name, patches_by_layer in patch_results.items():
         for layer_idx, patches in enumerate(patches_by_layer):
             if show_stats:
@@ -256,18 +272,23 @@ def visualize_all_patches(
             _plot_single(patches, layer_positions[layer_idx], cat_name, layer_idx,
                         store_dir, color_map.get(cat_name, 'blue'), 
                         (figsize_per_panel, figsize_per_panel), prefix, suffix)
+            pbar.update(1)
+    pbar.close()
     
     # Multi-layer comparison per category
-    for cat_name, patches_by_layer in patch_results.items():
+    print("\nCreating multi-layer comparisons...")
+    for cat_name, patches_by_layer in tqdm(patch_results.items(), desc="Multi-layer plots"):
         _plot_category_layers(patches_by_layer, layer_positions, cat_name,
                              store_dir, color_map.get(cat_name, 'blue'),
                              figsize_per_panel, prefix, suffix)
     
     # Summary grid
+    print("\nCreating summary grid...")
     _plot_summary(patch_results, layer_positions, store_dir,
                  color_map, figsize_per_panel // 2, prefix, suffix)
     
     # Statistics
+    print("\nCreating statistics plots...")
     _plot_stats(patch_results, store_dir, prefix, suffix)
     
     print(f"\nAll visualizations saved to {store_dir}")
@@ -466,3 +487,74 @@ def _plot_stats(patch_results, store_dir, prefix, suffix):
     plt.tight_layout()
     plt.savefig(f'{store_dir}/{prefix}statistics{suffix}.png', dpi=300, bbox_inches='tight')
     plt.close()
+
+
+def visualize_patches(
+    t_vals_dict: dict,
+    layer_positions: List[np.ndarray],
+    viz_dir: str,
+    prefix: str = '',
+    suffix: str = '',
+    threshold: float = 2.0,
+    minimum_size: float = 100,
+    maximum_size: float = 4500,
+    min_count: int = 10,
+    sigma: float = 2.4,
+    n_anchors: int = 100,
+    hull_alpha: float = 0.1,
+    verbose: bool = False,
+    figsize_per_panel: int = 6,
+    show_stats: bool = True,
+    color_map: Optional[dict] = None,
+):
+    """
+    Find and visualize patches from t-values dictionary.
+    
+    Args:
+        t_vals_dict: Dictionary mapping category names to t-values (or list of t-values per layer)
+        layer_positions: List of position arrays for each layer
+        viz_dir: Directory to save visualizations
+        prefix: Prefix for output filenames
+        suffix: Suffix for output filenames
+        threshold: Selectivity threshold for patch detection
+        minimum_size: Minimum patch area
+        maximum_size: Maximum patch area
+        min_count: Minimum number of units in a patch
+        sigma: Gaussian smoothing sigma
+        n_anchors: Number of grid points for smoothing
+        hull_alpha: Alpha parameter for concave hull
+        verbose: Print detailed information
+        figsize_per_panel: Figure size per panel in inches
+        show_stats: Print patch statistics
+        color_map: Optional dictionary mapping category names to colors
+    
+    Returns:
+        patch_results: Dictionary mapping category names to lists of patches per layer
+    """
+    # Find patches for all categories
+    patch_results = find_patches_for_categories(
+        t_vals_dict=t_vals_dict,
+        layer_positions=layer_positions,
+        threshold=threshold,
+        minimum_size=minimum_size,
+        maximum_size=maximum_size,
+        min_count=min_count,
+        sigma=sigma,
+        n_anchors=n_anchors,
+        hull_alpha=hull_alpha,
+        verbose=verbose,
+    )
+    
+    # Visualize all patches
+    visualize_all_patches(
+        patch_results=patch_results,
+        layer_positions=layer_positions,
+        store_dir=viz_dir,
+        figsize_per_panel=figsize_per_panel,
+        prefix=prefix,
+        suffix=suffix,
+        show_stats=show_stats,
+        color_map=color_map,
+    )
+    
+    return patch_results

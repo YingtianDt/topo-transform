@@ -123,14 +123,14 @@ def compare_video_orderings(model, transform, dataset,
         
         # Print summary statistics
         for i in range(num_layers):
-            print(f"  Layer {i}: mean |t| = {np.mean(np.abs(t_vals[i])):.3f}, "
+            print(f"  Layer {i}: mean t = {np.mean((t_vals[i])):.3f}, "
                   f"max |t| = {np.max(np.abs(t_vals[i])):.3f}")
     
     return t_vals_dict
 
 
-def validate_temporal(model, transform, dataset_name, viz_dir, epoch, 
-                      batch_size=32, device='cuda', num_samples=256, seed=42, viz_params={}):
+def validate_temporal(model, transform, dataset_name, viz_dir, epoch, duration=2000, fps=12,
+                      batch_size=32, device='cuda', num_samples=256, seed=42, viz_params=None):
     """
     Validate model by comparing responses to different video orderings.
     
@@ -145,12 +145,15 @@ def validate_temporal(model, transform, dataset_name, viz_dir, epoch,
         seed: Random seed for reproducibility
     """
     
+    if viz_params is None:
+        viz_params = {}
+
     # Get layer positions for visualization
     layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
     
     # Get dataset
-    if dataset_name == 'smthsmthv2':
-        smthsmth = SmthSmthV2(train_transforms=transform, test_transforms=transform)
+    if dataset_name == 'ssv2':
+        smthsmth = SmthSmthV2(train_transforms=transform, test_transforms=transform, duration=duration, fps=fps)
         dataset = smthsmth.valset
         dataset = Subset(dataset, list(range(min(num_samples, len(dataset)))))
 

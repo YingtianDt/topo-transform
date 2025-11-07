@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 
 
-VJEPA_LAYERS = [f'backbone.blocks.{i}' for i in range(24)]
+VJEPA_LAYERS = [f'backbone.blocks.{i}.attn' for i in range(24)]
 UNIFORMER_LAYERS = [
     *[f'model.blocks1.{i}' for i in range(0,  5)],
     *[f'model.blocks2.{i}' for i in range(0,  8)],
@@ -94,6 +94,8 @@ class VJEPAFeatureExtractor(LayerFeatureExtractor):
 
     def _process_feature(self, feature):
         # feature: B x THW x C
+        if isinstance(feature, tuple):
+            feature = feature[0]  # in case of (feature, extra)
         B, THW, C = feature.shape
         feature = feature.reshape(B, -1, 14, 14, C)  # B x T x H x W x C
         feature = feature.permute(0, 1, 4, 2, 3)  # B x T x C x H x W

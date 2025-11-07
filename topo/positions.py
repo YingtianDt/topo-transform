@@ -23,7 +23,6 @@ from spacetorch.utils.generic_utils import load_config_from_yaml
 from spacetorch.paths import POSITION_DIR
 
 # script constants
-INITIAL_RF_OVERLAP = 0.1  # how much do hypercolumns overlap in the first layer?
 POS_VERSION = 2  # increment this every time the position scheme changes
 
 # set up logger
@@ -60,8 +59,8 @@ class LayerPlacement:
     name: str
     tissue_size: float
     dims: Dims
-    rf_overlap: float = INITIAL_RF_OVERLAP
-    neighborhood_width: float = 0.5
+    rf_overlap: float
+    neighborhood_width: float
 
 
 def get_placement_configs(
@@ -69,6 +68,7 @@ def get_placement_configs(
     layer_dims: Dict[LayerString, Dims],
     layer_tissue_sizes: Dict[LayerString, float],
     layer_neighborhood_widths: Dict[LayerString, float], 
+    layer_rf_overlaps: Dict[LayerString, float]
 ) -> List[LayerPlacement]:
     placement_configs: List[LayerPlacement] = [
         LayerPlacement(
@@ -76,26 +76,10 @@ def get_placement_configs(
             tissue_size=layer_tissue_sizes[layer],
             dims=layer_dims[layer],
             neighborhood_width=layer_neighborhood_widths[layer],
+            rf_overlap=layer_rf_overlaps[layer],
         )
         for layer in layers
     ]
-
-    # # beginning with INITIAL_RF_OVERLAP, the amount of overlap for each layer is 
-    # # proportional to the amount that the spatial feature maps have shrunk. For example,
-    # # after the first block (layer1.0 and layer1.1), feature maps shrink by 2x from 64x64
-    # # to 28x28. Accordingly, we double RF overlap for the next set of layers
-    # initial_x = placement_configs[0].dims[-1]
-    # for cfg in placement_configs:
-    #     downsampling_ratio = initial_x / cfg.dims[-1]
-    #     cfg.rf_overlap = min(INITIAL_RF_OVERLAP * downsampling_ratio, 1.0)
-
-    # Exponential progression of overlap from INITIAL_RF_OVERLAP → 1
-    initial_x = placement_configs[0].dims[-1]
-    L = len(placement_configs)
-
-    for i, cfg in enumerate(placement_configs):
-        t = i / (L - 1) if L > 1 else 0.0
-        cfg.rf_overlap = INITIAL_RF_OVERLAP * (1/INITIAL_RF_OVERLAP) ** t
 
     return placement_configs
 
@@ -132,6 +116,7 @@ def create_position_dicts(
     layer_dims: Dict[LayerString, Dims],
     layer_tissue_sizes: Dict[LayerString, float],
     layer_neighborhood_widths: Dict[LayerString, float], 
+    layer_rf_overlaps: Dict[LayerString, float],
     save_dir = None,
 ):
     if save_dir is not None:
@@ -143,6 +128,7 @@ def create_position_dicts(
         layer_dims, 
         layer_tissue_sizes,
         layer_neighborhood_widths,
+        layer_rf_overlaps,
     )
 
     # save each placement config

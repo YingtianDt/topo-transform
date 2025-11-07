@@ -23,27 +23,11 @@ class InvertibleMatrix(nn.Module):
         
         # Free parameter matrix
         self.scale = Parameter(torch.ones(1))
-        self.weight = Parameter(torch.empty(size, size))
+        self.weight = Parameter(torch.randn(self.size, self.size) * init_scale)
         
         # Dropout layer
         self.dropout = nn.Dropout(p=dropout) if dropout > 0 else None
         
-        # Initialize
-        self.init_weights(init_scale)
-    
-    def init_weights(self, init_scale=0.01):
-        """Initialize to near-identity matrix (identity + small noise)"""
-        with torch.no_grad():
-            if init_scale == 0:
-                # Exact identity
-                self.weight.copy_(torch.eye(self.size))
-            else:
-                # Near-identity: I + scale * noise
-                self.weight.copy_(torch.eye(self.size))
-                self.weight.add_(torch.randn(self.size, self.size) * init_scale)
-                # DEBUG
-                self.weight.copy_(torch.randn(self.size, self.size) * init_scale)
-    
     def get_matrix(self):
         """Get orthogonal matrix via QR decomposition"""
         # Apply dropout to weight matrix during training
@@ -164,7 +148,7 @@ class FactorizedInvertibleTransformation(nn.Module):
 
 
 class TopoTransform(nn.Module):
-    def __init__(self, layer_dims, init_scale=0.1):
+    def __init__(self, layer_dims, init_scale=1e-3):  # NOTE: small init_scale is necessary
         """
         Args:
             layer_dims: list of tuples (C, H, W) for each layer

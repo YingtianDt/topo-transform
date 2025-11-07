@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
 from .basic import visualize_tvals
+from .cluster import visualize_patches
 
 
 def run_features(model, data_loader, device, downsampler=None):
@@ -27,7 +28,8 @@ def run_features(model, data_loader, device, downsampler=None):
     all_feats = []
     all_targets = []
 
-    for data, target in tqdm(data_loader, desc="Extracting features"):
+    for tmp in tqdm(data_loader, desc="Extracting features"):
+        data, target = tmp[0], tmp[1]
         data = data.to(device, non_blocking=True)
 
         with torch.no_grad():

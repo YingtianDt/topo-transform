@@ -11,7 +11,7 @@ import numpy as np
 from scipy import stats
 
 from utils import cached
-from .utils import video_transform, safe_decoder, run_features, visualize_tvals
+from .utils import video_transform, safe_decoder, run_features, visualize_tvals, visualize_patches
 
 
 VPNL = '/mnt/scratch/ytang/datasets/fLoc_stimuli'
@@ -154,7 +154,10 @@ def functional_localization_one_vs_rest(model, transform, dataset,
     return t_vals_dict
 
 
-def validate_floc(model, transform, dataset_name, viz_dir, epoch, viz_params={}):
+def validate_floc(model, transform, dataset_name, viz_dir, epoch, viz_patches=False, viz_params=None):
+    if viz_params is None:
+        viz_params = {}
+
     if dataset_name == "vpnl":
         dataset = VPNL_category_dataset(transform=transform)
     elif dataset_name == "kanwisher":
@@ -168,3 +171,5 @@ def validate_floc(model, transform, dataset_name, viz_dir, epoch, viz_params={})
     )(functional_localization_one_vs_rest)
     t_vals_dict = functional_localization_one_vs_rest_wrapped(model, transform=transform, dataset=dataset)
     visualize_tvals(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=f'_{epoch+1}', **viz_params)
+    if viz_patches:
+        visualize_patches(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=f'_patches_{epoch+1}')

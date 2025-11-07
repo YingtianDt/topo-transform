@@ -4,7 +4,7 @@ import os
 import torch
 from torchvision import transforms
 
-from validate import load_transformed_model, validate_autocorr, validate_floc, validate_temporal
+from validate import *
 
 
 vit_transform = transforms.Compose([
@@ -30,7 +30,8 @@ def crop_config_id(ckpt_name):
 if __name__ == '__main__':
     model_name = "best_transformed_model_vjepa_4_8_12_16_20_lr1e-4_bs32.pt"
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model, epoch = load_transformed_model(checkpoint_name=model_name, device=device)
+    model, epoch = load_transformed_model(layer_indices=range(4, 24, 4), checkpoint_name=model_name, device=device)
+
     config_id = crop_config_id(model_name)
 
     figure_dir = config.CACHE_DIR / "figures" / config_id
@@ -40,6 +41,8 @@ if __name__ == '__main__':
         'topk_percent': 1,
     }
 
-    # validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params)
-    validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params)
-    # validate_temporal(model, vit_transform, dataset_name='smthsmthv2', viz_dir=figure_dir, epoch=epoch)
+    validate_invertibility(model, vit_transform)
+    # validate_motion(model, vit_transform, viz_dir=figure_dir, epoch=epoch)
+    # validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params, viz_patches=True)
+    # validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, epoch=epoch, viz_params=viz_params, viz_patches=True)
+    # validate_temporal(model, vit_transform, dataset_name='ssv2', viz_dir=figure_dir, epoch=epoch)

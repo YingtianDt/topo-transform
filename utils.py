@@ -1,4 +1,4 @@
-from config import CACHE_DIR, DEBUG, RERUN
+from config import DEBUG_DIR, DEBUG, RERUN
 
 import os
 import pickle
@@ -7,16 +7,6 @@ import json
 from pathlib import Path
 from typing import Callable, Optional
 from functools import wraps
-
-
-def _get_cache_key(*args, **kwargs) -> str:
-    """Generate cache key from arguments."""
-    cache_data = {
-        'args': str(args),
-        'kwargs': str(sorted(kwargs.items()))
-    }
-    cache_str = json.dumps(cache_data, sort_keys=True)
-    return hashlib.md5(cache_str.encode()).hexdigest()
 
 
 def cached(
@@ -46,12 +36,11 @@ def cached(
                 return func(*args, **kwargs)
             
             # Setup cache directory
-            _cache_dir = cache_dir or CACHE_DIR
+            _cache_dir = cache_dir or DEBUG_DIR
             _cache_dir.mkdir(parents=True, exist_ok=True)
             
             # Generate cache file path
-            cache_key = _get_cache_key(*args, **kwargs)
-            cache_file = _cache_dir / f"{cache_name}_{cache_key}.pkl"
+            cache_file = _cache_dir / f"{cache_name}.pkl"
             
             # If RERUN is True, force recompute
             if RERUN:

@@ -74,7 +74,8 @@ def visualize_tvals(t_vals_dict, layer_positions, store_dir, figsize_per_panel=5
             axes[layer_idx].set_aspect('equal', 'box')
             
         # Add colorbar
-        fig.colorbar(im, ax=axes, orientation='horizontal', fraction=0.05, label='t-statistic')
+        cbar_ax = fig.add_axes([0.375, -0.07, 0.25, 0.03])  # [left, bottom, width, height]
+        fig.colorbar(im, cax=cbar_ax, orientation='horizontal', label='t-statistic')
         plt.suptitle(f'{cat_name} (one-vs-rest)', fontsize=14, y=1.02)
         plt.tight_layout()
         plt.savefig(f'{store_dir}/{prefix}tvals_{cat_name}{suffix}.png', 
