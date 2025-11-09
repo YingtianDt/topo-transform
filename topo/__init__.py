@@ -105,6 +105,40 @@ def _get_tissue_configs(layer_indices, layer_assignments, exponentially_interpol
     return layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps
 
 
+def _get_tissue_configs_v2(layer_indices, layer_assignments, exponentially_interpolate=True, constant_rf_overlap=False):
+    layer_tissue_sizes = []
+    layer_neighborhood_widths = []
+    layer_rf_overlaps = []
+
+    assert exponentially_interpolate
+    assert not constant_rf_overlap
+
+    # NW / TS Exponential 0.9827    y = 0.0249 * exp(0.156 * x) + 0.0069
+    # RF Overlap Exponential 0.9984 y = 0.382 * exp(0.0562 * x) - 0.282
+
+    num_stages = len(layer_assignments)
+    areas = list(layer_assignments.keys())
+
+    for l in range(24):
+        tissue_size = 30
+        neighborhood_width = (0.0249 * np.exp(0.156 * l) + 0.0069) * tissue_size
+        rf_overlap = 0.382 * np.exp(0.0562 * l) - 0.282
+        rf_overlap = min(1.0, max(0, rf_overlap))
+        layer_tissue_sizes.append(tissue_size)
+        layer_neighborhood_widths.append(neighborhood_width)
+        layer_rf_overlaps.append(rf_overlap)
+
+    layer_tissue_sizes = [layer_tissue_sizes[i] for i in layer_indices]
+    layer_neighborhood_widths = [layer_neighborhood_widths[i] for i in layer_indices]
+    layer_rf_overlaps = [layer_rf_overlaps[i] for i in layer_indices]
+    
+    print("Layer tissue sizes:", layer_tissue_sizes)
+    print("Layer neighborhood widths:", layer_neighborhood_widths)
+    print("Layer RF overlaps:", layer_rf_overlaps)
+
+    return layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps
+
+
 def _exponentially_interpolate(start, end, num_points, lower_bound=0.01):
     if num_points == 1:
         return [start]
@@ -182,7 +216,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
 
         if not layer_config_dir.exists() or rebuild:
             print("Generating layer positions...")
-            layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps = _get_tissue_configs(
+            layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps = _get_tissue_configs_v2(
                 layer_indices, VJEPA_LAYER_ASSIGNMENTS, exponentially_interpolate=exponentially_interpolate, 
                 constant_rf_overlap=constant_rf_overlap
             )

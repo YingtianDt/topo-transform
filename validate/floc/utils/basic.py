@@ -7,7 +7,7 @@ from matplotlib.colors import Normalize
 
 
 def visualize_tvals(t_vals_dict, layer_positions, store_dir, figsize_per_panel=5, prefix='', suffix='', 
-                    topk_percent=100):
+                    topk_percent=100, dpi=150):
     """Visualize t-statistics for each category and layer.
     
     Args:
@@ -79,7 +79,7 @@ def visualize_tvals(t_vals_dict, layer_positions, store_dir, figsize_per_panel=5
         plt.suptitle(f'{cat_name} (one-vs-rest)', fontsize=14, y=1.02)
         plt.tight_layout()
         plt.savefig(f'{store_dir}/{prefix}tvals_{cat_name}{suffix}.png', 
-                    dpi=300, bbox_inches='tight')
+                    dpi=dpi, bbox_inches='tight')
         plt.close()
     
     print(f"Saved visualizations to {store_dir}")

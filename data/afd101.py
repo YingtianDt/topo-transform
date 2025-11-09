@@ -137,6 +137,9 @@ class _AFD101(VisionDataset):
     def __getitem__(self, idx: int) -> Tuple:
         """Get video data and label."""
         video_path, label = self.samples[self.indices[idx]]
+
+        if self.transforms is None:
+            return video_path, label, self.dataset_name
         
         video = Video.from_path(video_path)
         video = video.set_fps(self.fps)

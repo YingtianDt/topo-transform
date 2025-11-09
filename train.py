@@ -125,8 +125,8 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 
         # Visualization
         validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, data_path="vpnl", viz_dir=figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, data_path="kanwisher", viz_dir=figure_dir, epoch=epoch)
+        validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, epoch=epoch)
+        validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, epoch=epoch)
         
         # W&B logging
         if use_wandb:
@@ -185,10 +185,10 @@ if __name__ == '__main__':
     layer_indices = range(8, 24, 2)
     batch_size = 32
     lr = 1e-4
-    num_epochs = 10
+    num_epochs = 15
     neighborhoods_per_batch = 16
-    exponentially_interpolate = False
-    constant_rf_overlap = True
+    exponentially_interpolate = True
+    constant_rf_overlap = False
     use_wandb, wandb_project = True, 'tdann-transform'
     resume_training = True
     

@@ -3,6 +3,10 @@ from torchvision import transforms
 from pathlib import Path
 from torchcodec.decoders import VideoDecoder
 from tqdm import tqdm
+from collections import defaultdict
+from torch.utils.data import DataLoader, Dataset
+from PIL import Image
+from scipy import stats
 
 import os
 import numpy as np
@@ -11,6 +15,57 @@ from matplotlib.colors import Normalize
 
 from .basic import visualize_tvals
 from .cluster import visualize_patches
+
+from utils import cached
+
+
+class CategoryDataset(Dataset):
+    def __init__(self, file_infos, transform=None, frames_per_video=24, video_fps=12):
+        self.file_paths = [info[0] for info in file_infos]
+        self.labels = [info[1] for info in file_infos]
+        self.transform = transform
+        self.frames_per_video = frames_per_video
+        self.video_fps = video_fps
+        self.video_exts = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
+        
+        # Extract unique categories from labels
+        self.categories = sorted(list(set(self.labels)))
+        self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
+    
+    def __len__(self):
+        return len(self.file_paths)
+    
+    def _is_video(self, path):
+        return Path(path).suffix.lower() in self.video_exts
+    
+    def __getitem__(self, idx):
+        file_path = self.file_paths[idx]
+        label = self.category_to_idx[self.labels[idx]]
+        
+        if self._is_video(file_path):
+            decoder = safe_decoder(file_path)
+            duration = decoder.metadata.duration_seconds
+            time_duration = self.frames_per_video / self.video_fps
+            
+            if duration < time_duration:
+                time_start, time_end = 0, time_duration
+            else:
+                time_start = (duration - time_duration) / 2
+                time_end = time_start + time_duration
+
+            data = video_transform(
+                file_path, time_start, time_end,
+                torch_transforms=self.transform or transforms.Lambda(lambda x: x),
+                fps=self.video_fps
+            )
+        else:
+            img = Image.open(file_path).convert('RGB')
+            img = transforms.ToTensor()(img)
+            if self.transform:
+                img = self.transform(img)
+            data = img.unsqueeze(0).repeat(self.frames_per_video, 1, 1, 1)
+        
+        return (data, label)
 
 
 def run_features(model, data_loader, device, downsampler=None):
@@ -174,3 +229,65 @@ def video_transform(path, time_start, time_end, torch_transforms, fps=12):
 
     return frames
 
+
+def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda', downsampler=None, video_fps=12, frames_per_video=24):
+    # datasets: map(category: str, List[(file_path: str, label: str)])
+    categories = list(datasets.keys())
+    print(f"Found categories: {categories}")
+    print(f"Activations over time are averaged for each stimulus.")
+    
+    # ensure contrasts are valid
+    for contrast in contrasts:
+        for c in contrast:
+            assert isinstance(c, int)
+            assert c in [0, 1, -1], f"Invalid contrast category: {c}"
+
+    # Extract features
+    category_feats = {}
+    for category, file_infos in datasets.items():
+        print(f"Extracting features for {category}...")
+        cat_dataset = CategoryDataset(file_infos, transform=transform, 
+                                      frames_per_video=frames_per_video,
+                                      video_fps=video_fps)
+        loader = DataLoader(cat_dataset, batch_size=batch_size, num_workers=int(batch_size/1.5), shuffle=False)
+        feats, _ = run_features(model, loader, device, downsampler)
+        feats = [np.mean(f, axis=1) for f in feats]  # NOTE: average over time
+        category_feats[category] = feats
+    
+    # Compute one-vs-rest t-statistics
+    t_vals_dict = defaultdict(list)
+    p_vals_dict = defaultdict(list)
+    for contrast in contrasts:
+        positive_cats = [categories[i] for i, c in enumerate(contrast) if c == 1]
+        negative_cats = [categories[i] for i, c in enumerate(contrast) if c == -1]
+        contrast_name = "_vs_".join(["+".join(positive_cats), "+".join(negative_cats)])
+        print(f"Computing t-stats for {contrast_name}...")
+
+        num_layers = len(category_feats[positive_cats[0]])
+        positive_feats = [
+            np.concatenate([category_feats[cat][i] for cat in positive_cats], axis=0)
+            for i in range(num_layers)
+        ]
+        negative_feats = [
+            np.concatenate([category_feats[cat][i] for cat in negative_cats], axis=0)
+            for i in range(num_layers)
+        ]
+        for i in range(num_layers):
+            ts, ps = stats.ttest_ind(
+                positive_feats[i], negative_feats[i], axis=0, equal_var=False
+            )
+            t_vals_dict[contrast_name].append(ts)
+            p_vals_dict[contrast_name].append(ps)
+
+        # Print summary statistics
+        for i in range(num_layers):
+            print(f"  Layer {i}: mean t = {np.mean((t_vals_dict[contrast_name][i])):.3f}, "
+                  f"max |t| = {np.max(np.abs(t_vals_dict[contrast_name][i])):.3f}")
+    
+    return t_vals_dict, p_vals_dict
+
+def t_test(model, transform, datasets, contrasts, **kwargs):
+    """Wrapper function for t_test with caching."""
+    return cached(
+        f'ttest_{"_".join([d for d in datasets.keys()])}_{"_".join(["".join(map(str, c)) for c in contrasts])}',
+    )(_t_test)(model, transform, datasets, contrasts, **kwargs)

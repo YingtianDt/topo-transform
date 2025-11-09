@@ -119,9 +119,6 @@ def create_position_dicts(
     layer_rf_overlaps: Dict[LayerString, float],
     save_dir = None,
 ):
-    if save_dir is not None:
-        save_dir.mkdir(exist_ok=True, parents=True)
-        logger.info(f"Saving to {save_dir}")
 
     placement_configs = get_placement_configs(
         layers,
@@ -143,6 +140,8 @@ def create_position_dicts(
             neighborhood_width=position_dict["radius"] * 2,
         )
         if save_dir is not None:
+            save_dir.mkdir(exist_ok=True, parents=True)
+            logger.info(f"Saving to {save_dir}: {cfg.name}.pkl")
             layer_positions.save(save_dir)
         
         ret.append(layer_positions)

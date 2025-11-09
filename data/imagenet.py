@@ -115,6 +115,9 @@ class _ImageNetVid(Dataset):
         """Get video data from static image."""
         img_path = self.image_paths[idx]
         label = self.labels[idx]
+
+        if self.transforms is None:
+            return img_path, label, self.dataset_name
         
         # Load and process image
         image = Image.from_path(img_path).set_size(self.size)

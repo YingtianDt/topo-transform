@@ -29,7 +29,7 @@ class SmthSmthV2():
         self.valset = _SmthSmthV2(
             videos_root, json_file_val, json_file_labels, train=False,
             fps=fps, duration=duration, size=size, transforms=test_transforms, 
-            shuffle=shuffle, static=static, subsample_factor=subsample_factor/5
+            shuffle=shuffle, static=static, subsample_factor=0.02
         )
 
         if not debug:
@@ -104,6 +104,9 @@ class _SmthSmthV2(Dataset):
         except Exception as e:
             print(f"Error processing video {item.path}: {e}")
             return self.__getitem__((index + 1) % len(self))
+
+        if self.transforms is None:
+            return item.path, self.classes_dict[item.label], self.dataset_name
 
         video = video.set_fps(self.fps)
         
