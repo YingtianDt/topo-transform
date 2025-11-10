@@ -42,9 +42,19 @@ if __name__ == '__main__':
     }
 
     # validate_invertibility(model, vit_transform)
-    validate_floc(model, vit_transform, dataset_name="biomotion", viz_dir=figure_dir, viz_params=viz_params)
-    validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, viz_params=viz_params)
-    validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, viz_params=viz_params)
-    # validate_floc(model, vit_transform, dataset_name="motion", viz_dir=figure_dir, viz_params=viz_params)
-    # validate_floc(model, vit_transform, dataset_name="pitzalis", viz_dir=figure_dir, viz_params=viz_params)
-    # validate_temporal(model, vit_transform, dataset_name='ssv2', viz_dir=figure_dir)
+    validate_floc(
+        model, 
+        vit_transform, 
+        dataset_names=[
+            "biomotion", 
+            "vpnl", 
+            "kanwisher", 
+            "pitzalis",
+            "motion", 
+            "temporal"
+        ],
+        viz_dir=figure_dir,
+        viz_params=viz_params,
+        batch_size=32,
+        device=device,
+    )

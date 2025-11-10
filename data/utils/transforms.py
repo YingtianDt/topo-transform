@@ -3,7 +3,7 @@ import random
 import torch
 import torchvision.transforms.functional as F
 from torchvision import transforms as T
-from pytorchvideo.transforms import AugMix, Div255
+# from pytorchvideo.transforms import AugMix, Div255
 
 class Transforms:
     def __init__(self, size):

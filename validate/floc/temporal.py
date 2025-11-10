@@ -6,33 +6,20 @@ from tqdm import tqdm
 import copy
 
 from utils import cached
-from data.smthsmthv2 import SmthSmthV2
-from .utils import run_features, visualize_tvals
+from data import Kinetics400
+from .utils import t_test, CategoryDataset
 
 
-class OrderingWrapper(Dataset):
-    """
-    Wrapper dataset that modifies the ordering of frames from an underlying dataset.
-    """
-    def __init__(self, base_dataset, transform, ordering='normal', seed=42):
-        """
-        Args:
-            base_dataset: The underlying dataset (e.g., SmthSmthV2 trainset/valset)
-            ordering: 'normal', 'shuffled', or 'static'
-            seed: Random seed for reproducibility
-        """
-        self.base_dataset = base_dataset
+class OrderingDataset(CategoryDataset):
+    def __init__(self, *args, ordering='normal', seed=42, **kwargs):
+        super().__init__(*args, **kwargs)
         self.ordering = ordering
         self.seed = seed
-        
-    def __len__(self):
-        return len(self.base_dataset)
     
     def __getitem__(self, idx):
         # Get item from base dataset (always in normal ordering)
-        tmp = self.base_dataset[idx]
-        data, label = tmp[0], tmp[1]
-        
+        data, label = super().__getitem__(idx)
+
         # data shape: (T, C, H, W)
         num_frames = data.shape[0]
         
@@ -47,133 +34,57 @@ class OrderingWrapper(Dataset):
             middle_idx = num_frames // 2
             data = data[middle_idx:middle_idx+1].repeat(num_frames, 1, 1, 1)
         # else: 'normal' - keep original ordering
-
         return data, label
 
 
-def compare_video_orderings(model, transform, dataset, 
-                            batch_size=32, device='cuda', downsampler=None, seed=42):
-    """
-    Compare features extracted from videos in different orderings.
+def localize_temporal(model, transform, frames_per_video=24, video_fps=12,
+                      batch_size=32, device='cuda', num_samples=256, seed=42):
     
-    Args:
-        model: The model to extract features from
-        transform: Transform to apply (not used if dataset already has transforms)
-        dataset: Base dataset object (e.g., SmthSmthV2().trainset or .valset)
-        batch_size: Batch size for processing
-        device: Device to run on
-        downsampler: Optional downsampler
-        seed: Random seed for reproducibility
-        
-    Returns:
-        t_vals_dict: Dictionary with keys 'normal_vs_shuffled', 'normal_vs_static', 
-                     'shuffled_vs_static', each containing list of t-values per layer
-    """
-    
+    dataset = Kinetics400()
+
+    np.random.seed(seed)
+    subsamples = np.random.choice(
+        len(dataset.valset), 
+        size=min(num_samples, len(dataset.valset)), 
+        replace=False
+    )
+    dataset = Subset(
+        dataset.valset, 
+        subsamples.tolist()
+    )
+
     print(f"Processing {len(dataset)} videos with seed {seed}")
     print("Extracting features for each ordering...")
     
     # Extract features for each ordering
     orderings = ['normal', 'shuffled', 'static']
-    ordering_feats = {}
+    datasets = {}
     
     print("Averaging over time dimension for each video.")
     for ordering in orderings:
         print(f"\nExtracting features for {ordering} ordering...")
         
         # Create wrapped dataset with specific ordering
-        wrapped_dataset = OrderingWrapper(dataset, transform, ordering=ordering, seed=seed)
-        
-        loader = DataLoader(
-            wrapped_dataset, 
-            batch_size=batch_size, 
-            num_workers=min(8, int(batch_size/1.5)),
-            shuffle=False,  # Important: don't shuffle to maintain correspondence
-            pin_memory=True
-        )
-        
-        feats, _ = run_features(model, loader, device, downsampler)
-        # NOTE: Average over time dimension for each video
-        feats = [np.mean(f, axis=1) for f in feats]
-        ordering_feats[ordering] = feats
+        wrapped_dataset = OrderingDataset(dataset, transform, ordering=ordering, seed=seed)
+        datasets[ordering] = wrapped_dataset
     
-    # Compute paired t-tests for each comparison
-    print("\nComputing paired t-tests...")
-    comparisons = [
-        ('normal', 'shuffled'),
-        ('normal', 'static'),
-        ('shuffled', 'static')
-    ]
-    
-    t_vals_dict = {}
-    for order1, order2 in comparisons:
-        comparison_name = f'{order1}_vs_{order2}'
-        print(f"\nComputing t-stats for {comparison_name}...")
-        
-        feats1 = ordering_feats[order1]
-        feats2 = ordering_feats[order2]
-        num_layers = len(feats1)
-        
-        # Paired t-test (same videos in different orderings)
-        t_vals = [
-            stats.ttest_rel(feats1[i], feats2[i], axis=0)[0]
-            for i in tqdm(range(num_layers), desc=f"t-stats: {comparison_name}")
-        ]
-        t_vals_dict[comparison_name] = t_vals
-        
-        # Print summary statistics
-        for i in range(num_layers):
-            print(f"  Layer {i}: mean t = {np.mean((t_vals[i])):.3f}, "
-                  f"max |t| = {np.max(np.abs(t_vals[i])):.3f}")
-    
-    return t_vals_dict
+    t_vals_dict = t_test(
+        model, 
+        transform, 
+        datasets, 
+        contrasts=[(1, -1, 0), (1, 0, -1), (0, 1, -1)],
+        batch_size=batch_size, 
+        device=device, 
+        downsampler=None,
+        frames_per_video=frames_per_video, 
+        video_fps=video_fps,
+        related=True,
+    )[0]
 
+    ret = {
+        "motion_vs_static_v2": t_vals_dict["normal_vs_static"],
+        "motion_vs_static_v3": t_vals_dict["shuffled_vs_static"],
+        "high_lvl_motion": t_vals_dict["normal_vs_shuffled"],
+    }
 
-def validate_temporal(model, transform, dataset_name, viz_dir, epoch, duration=2000, fps=12,
-                      batch_size=32, device='cuda', num_samples=256, seed=42, viz_params=None):
-    """
-    Validate model by comparing responses to different video orderings.
-    
-    Args:
-        model: The model to validate
-        dataset: Dataset object (e.g., SmthSmthV2().trainset or .valset)
-        viz_dir: Directory to save visualizations
-        epoch: Current epoch number
-        batch_size: Batch size for processing
-        device: Device to run on
-        downsampler: Optional downsampler
-        seed: Random seed for reproducibility
-    """
-    
-    if viz_params is None:
-        viz_params = {}
-
-    # Get layer positions for visualization
-    layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
-    
-    # Get dataset
-    if dataset_name == 'ssv2':
-        smthsmth = SmthSmthV2(train_transforms=transform, test_transforms=transform, duration=duration, fps=fps)
-        dataset = smthsmth.valset
-        dataset = Subset(dataset, list(range(min(num_samples, len(dataset)))))
-
-    # Compute t-values for different orderings
-    compare_video_orderings_wrapped = cached(
-        f'floc_temporal_{dataset_name}_epoch_{epoch}_seed_{seed}',
-    )(compare_video_orderings)
-    t_vals_dict = compare_video_orderings_wrapped(
-        model, transform=transform, dataset=dataset,
-        batch_size=batch_size, device=device, seed=seed
-    )
-    
-    # Visualize results
-    visualize_tvals(
-        t_vals_dict, 
-        layer_positions, 
-        viz_dir, 
-        prefix=f'{dataset_name}_temporal_', 
-        suffix=f'_epoch{epoch+1}',
-        **viz_params
-    )
-    
-    return t_vals_dict
+    return ret

@@ -13,8 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
-from .basic import visualize_tvals
-from .cluster import visualize_patches
+from .basic import *
+from .cluster import *
 
 from utils import cached
 
@@ -229,9 +229,9 @@ def video_transform(path, time_start, time_end, torch_transforms, fps=12):
 
     return frames
 
-
-def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda', downsampler=None, video_fps=12, frames_per_video=24):
+def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda', downsampler=None, video_fps=12, frames_per_video=24, related=False):
     # datasets: map(category: str, List[(file_path: str, label: str)])
+    #           or map(category: str, dataset: Dataset) 
     categories = list(datasets.keys())
     print(f"Found categories: {categories}")
     print(f"Activations over time are averaged for each stimulus.")
@@ -246,10 +246,14 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
     category_feats = {}
     for category, file_infos in datasets.items():
         print(f"Extracting features for {category}...")
-        cat_dataset = CategoryDataset(file_infos, transform=transform, 
-                                      frames_per_video=frames_per_video,
-                                      video_fps=video_fps)
-        loader = DataLoader(cat_dataset, batch_size=batch_size, num_workers=int(batch_size/1.5), shuffle=False)
+        if isinstance(file_infos, Dataset):
+            cat_dataset = file_infos
+        else:
+            cat_dataset = CategoryDataset(file_infos, transform=transform, 
+                                        frames_per_video=frames_per_video,
+                                        video_fps=video_fps)
+        loader = DataLoader(cat_dataset, batch_size=batch_size, 
+                            num_workers=int(batch_size/1.5), shuffle=False)   # Important: don't shuffle to maintain correspondence
         feats, _ = run_features(model, loader, device, downsampler)
         feats = [np.mean(f, axis=1) for f in feats]  # NOTE: average over time
         category_feats[category] = feats
@@ -272,9 +276,10 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
             np.concatenate([category_feats[cat][i] for cat in negative_cats], axis=0)
             for i in range(num_layers)
         ]
+        ttest_alg = stats.ttest_ind if not related else stats.ttest_rel
         for i in range(num_layers):
-            ts, ps = stats.ttest_ind(
-                positive_feats[i], negative_feats[i], axis=0, equal_var=False
+            ts, ps = ttest_alg(
+                positive_feats[i], negative_feats[i], axis=0
             )
             t_vals_dict[contrast_name].append(ts)
             p_vals_dict[contrast_name].append(ps)
@@ -286,8 +291,11 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
     
     return t_vals_dict, p_vals_dict
 
-def t_test(model, transform, datasets, contrasts, **kwargs):
+def t_test(model, transform, datasets, contrasts, related=False, **kwargs):
     """Wrapper function for t_test with caching."""
-    return cached(
-        f'ttest_{"_".join([d for d in datasets.keys()])}_{"_".join(["".join(map(str, c)) for c in contrasts])}',
-    )(_t_test)(model, transform, datasets, contrasts, **kwargs)
+    cache_key = (
+        f'ttest{"_rel" if related else ""}_{model.name}_'
+        f'{"_".join(sorted(datasets.keys()))}_'
+        f'{"_".join(["".join(map(str, c)) for c in contrasts])}'
+    )
+    return cached(cache_key)(_t_test)(model, transform, datasets, contrasts, related=related, **kwargs)
