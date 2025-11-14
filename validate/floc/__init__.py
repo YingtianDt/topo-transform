@@ -7,7 +7,7 @@ from .motion import localize_motion
 from .v6 import localize_v6
 from .psts import localize_psts
 
-FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion']
+FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal']
 
 def validate_floc(
         model, 
@@ -21,6 +21,8 @@ def validate_floc(
         device='cuda',
         frames_per_video=24,
         video_fps=12,
+        plot_individual=False,
+        plot_aggregate=False,
     ):
 
     if viz_params is None:
@@ -80,17 +82,27 @@ def validate_floc(
                 frames_per_video=frames_per_video,
                 video_fps=video_fps,
             )
+        elif dataset_name == "pitcher":
+            print("For Pitcher dataset, using duration = 3 seconds")
+            t_vals_dict = localize_pitcher(
+                model,
+                transform,
+                batch_size=batch_size,
+                device=device,
+                frames_per_video=video_fps*3,
+                video_fps=video_fps,
+            )
         else:
             raise ValueError(f"Unknown dataset_name: {dataset_name}")
 
         t_vals_dicts.append(t_vals_dict)
 
-        if viz_dir is not None:
+        if viz_dir is not None and plot_individual:
             suffix = f'_{epoch+1}' if epoch is not None else ''
             visualize_tvals(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=suffix, **viz_params)
             if viz_patches:
                 visualize_patches(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=f'_patches{suffix}')
 
-    if viz_dir is not None:
+    if viz_dir is not None and plot_aggregate:
         suffix = f'_{epoch+1}' if epoch is not None else ''
         visualize_all_rois_v2(t_vals_dicts, layer_positions, viz_dir, prefix=f'rois_', suffix=suffix)

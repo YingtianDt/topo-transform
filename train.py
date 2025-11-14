@@ -9,6 +9,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 import wandb
 from torch.utils.data import DataLoader
+import numpy as np
 
 from models import VJEPA, UniFormer, MViTV1
 from topo import TopoTransformedVJEPA, SpatialCorrelationLoss
@@ -125,8 +126,24 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 
         # Visualization
         validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, dataset_name="vpnl", viz_dir=figure_dir, epoch=epoch)
-        validate_floc(model, vit_transform, dataset_name="kanwisher", viz_dir=figure_dir, epoch=epoch)
+        validate_floc(
+            model, 
+            vit_transform, 
+            dataset_names=[
+                "biomotion", 
+                "vpnl", 
+                "kanwisher", 
+                "pitzalis",
+                "motion", 
+                "temporal",
+                "pitcher",
+            ],
+            viz_dir=figure_dir,
+            device=device,
+            plot_individual=True,
+            plot_aggregate=True,
+            epoch=epoch
+        )
         
         # W&B logging
         if use_wandb:
@@ -182,15 +199,22 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 if __name__ == '__main__':
     # Config
     model_name = 'vjepa'
-    layer_indices = range(8, 24, 2)
+    layer_indices = [14, 18, 22] 
     batch_size = 32
     lr = 1e-4
-    num_epochs = 15
-    neighborhoods_per_batch = 16
-    exponentially_interpolate = True
+    num_epochs = 5
+    neighborhoods_per_batch = 128
+    exponentially_interpolate = False
     constant_rf_overlap = False
+    single_sheet = True
     use_wandb, wandb_project = True, 'tdann-transform'
-    resume_training = True
+    resume_training = False
+    seed = 42
+
+    # seeding
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
     
     # Data
     data = SmthSmthV2(train_transforms=vit_transform, test_transforms=vit_transform)
@@ -200,10 +224,12 @@ if __name__ == '__main__':
                            num_workers=int(batch_size/1.5), pin_memory=True)
     
     # Model setup
-    model = TopoTransformedVJEPA(layer_indices=layer_indices, exponentially_interpolate=exponentially_interpolate, constant_rf_overlap=constant_rf_overlap)   
+    model = TopoTransformedVJEPA(layer_indices=layer_indices, exponentially_interpolate=exponentially_interpolate, constant_rf_overlap=constant_rf_overlap, 
+                                 single_sheet=single_sheet, seed=seed)
     config_id = get_config_id(model.name, lr, batch_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch)
+    neighborhoods_per_batch = neighborhoods_per_batch if not single_sheet else neighborhoods_per_batch * len(layer_indices)
+    criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch, single_sheet=single_sheet)
     
     # Directories
     storage_path = config.CACHE_DIR / "train_topo" / config_id

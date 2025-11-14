@@ -27,9 +27,12 @@ class FeatureExtractor:
 class LayerFeatureExtractor(FeatureExtractor):
     def __init__(self, layer_names):
         super(LayerFeatureExtractor, self).__init__()
-        self.layer_names = layer_names
+        self.set_layer_names(layer_names)
         self.outputs = {}
         self.hooks = []
+
+    def set_layer_names(self, layer_names):
+        self.layer_names = layer_names
 
     def _get_layer(self, model, layer_name):
         modules = layer_name.split('.')

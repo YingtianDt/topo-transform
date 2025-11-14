@@ -4,13 +4,14 @@ from spacetorch.losses.losses_torch import SpatialCorrelationLossModule
 
 
 class SpatialCorrelationLoss(nn.Module):
-    def __init__(self, num_layers: int, neighborhoods_per_batch: int = 16):
+    def __init__(self, num_layers: int, neighborhoods_per_batch: int = 16, single_sheet: bool = False):
         super().__init__()
         self.layer_losses = nn.ModuleList([
             SpatialCorrelationLossModule(neighborhoods_per_batch=neighborhoods_per_batch)
             for _ in range(num_layers)
         ])
-        self.num_layers = num_layers
+        self.num_layers = 1 if single_sheet else num_layers
+        self.single_sheet = single_sheet
 
     def forward(self, layer_features, layer_positions):
         loss = 0

@@ -206,7 +206,7 @@ def visualize_all_rois(t_vals_dicts, layer_positions, store_dir, figsize_per_pan
 
 
 def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_panel=5, 
-                       prefix='', suffix='', topk_percent=1, dpi=150):
+                       prefix='', suffix='', topk_percent=1, dpi=250):
     """Visualize all ROIs (categories) together across layers using different colors.
     
     Args:
@@ -219,19 +219,24 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
     """
     os.makedirs(store_dir, exist_ok=True)
 
+    # BUG:
+    print(f"***BUG: visualize_all_rois_v2 only visualizes last 5 layers! at {__file__}:{__line__}")
+    t_vals_dicts = [{k: v[-5:] for k, v in t_val_dict.items()} for t_val_dict in t_vals_dicts]
+    layer_positions = layer_positions[-5:]
+
     all_roi_colors = {
         # static categorical ROIs - saturated, bold colors
-        "face": ("static-face", (0.85, 0.15, 0.15)),      # deep red
-        "body": ("static-body", (0.13, 0.55, 0.13)),      # forest green
-        "object": ("static-object", (0.12, 0.34, 0.75)),  # royal blue
-        "place": ("static-place", (0.90, 0.45, 0.0)),     # dark orange
-        "character": ("static-word", (0.50, 0.0, 0.50)),  # deep purple
-        
-        # dynamic categorical ROIs - pastel/desaturated versions with better contrast
-        "Faces": ("dynamic-face", (1.0, 0.55, 0.55)),     # salmon pink
-        "Bodies": ("dynamic-body", (0.55, 0.85, 0.55)),   # mint green
-        "Objects": ("dynamic-object", (0.55, 0.70, 1.0)), # periwinkle blue
-        "Scenes": ("dynamic-place", (1.0, 0.80, 0.40)),   # peach/apricot
+        "face": ("static-face", (0.75, 0.00, 0.00)),        # crimson
+        "body": ("static-body", (0.00, 0.45, 0.00)),        # dark green
+        "object": ("static-object", (0.00, 0.20, 0.65)),    # navy blue
+        "place": ("static-place", (0.80, 0.35, 0.00)),      # burnt orange
+        "character": ("static-word", (0.40, 0.00, 0.60)),   # dark violet
+
+        # dynamic categorical ROIs - pastel/desaturated versions with strong contrast
+        "Faces": ("dynamic-face", (1.00, 0.80, 0.80)),      # blush pink
+        "Bodies": ("dynamic-body", (0.80, 1.00, 0.80)),     # pale mint
+        "Objects": ("dynamic-object", (0.75, 0.85, 1.00)),  # sky blue
+        "Scenes": ("dynamic-place", (1.00, 0.90, 0.70)),    # light peach
         
         # dynamic motion ROIs - cyan/teal family (more distinct)
         "V6": ("V6", (0.0, 0.85, 0.95)),                  # bright cyan (cool)
@@ -240,14 +245,21 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
 
         # placeholder for motion-vs-static contrast
         "motion_vs_static": ("motion_vs_static", (0.0, 0.0, 0.0)),
-        "motion_vs_static_v2": ("motion_vs_static", (0.0, 0.0, 0.0)),
-        "motion_vs_static_v3": ("motion_vs_static", (0.0, 0.0, 0.0)),
+        # "motion_vs_static_v2": ("motion_vs_static", (0.0, 0.0, 0.0)),
+        # "motion_vs_static_v3": ("motion_vs_static", (0.0, 0.0, 0.0)),
     }
 
+    # motion_vs_statics = ["motion_vs_static", "motion_vs_static_v2", "motion_vs_static_v3"]
+    motion_vs_statics = ["motion_vs_static"]
+
     for group, group_rois in {
-        "static-categorical": ["face", "body", "object", "place", "character", "motion_vs_static", "motion_vs_static_v2", "motion_vs_static_v3"],
-        "dynamic-categorical": ["Faces", "Bodies", "Objects", "Scenes", "motion_vs_static", "motion_vs_static_v2", "motion_vs_static_v3"],
-        "dynamic-motion": ["V6", "MT", "pSTS", "motion_vs_static", "motion_vs_static_v2", "motion_vs_static_v3"],
+        "static-categorical": ["face", "body", "object", "place", "character", *motion_vs_statics],
+        "dynamic-categorical": ["Faces", "Bodies", "Objects", "Scenes", *motion_vs_statics],
+        "dynamic-motion": ["V6", "MT", "pSTS", *motion_vs_statics],
+        "face": ["face", "Faces", *motion_vs_statics],
+        "body": ["body", "Bodies", *motion_vs_statics],
+        "object": ["object", "Objects", *motion_vs_statics],
+        "place": ["place", "Scenes", *motion_vs_statics],
     }.items():
         roi_colors = {roi: all_roi_colors[roi] for roi in group_rois}
 
@@ -336,7 +348,8 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
                         pos_filtered[:, 1],
                         color=color, 
                         s=0.5,
-                        alpha=(0.3 + 0.7 * t_norm),  # Scale alpha by t-value
+                        # alpha=(0.3 + 0.7 * t_norm),  # Scale alpha by t-value
+                        alpha=0.8,
                         label=roi_display_name if add_label else None
                     )
                     
@@ -392,4 +405,4 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
                     dpi=dpi, bbox_inches='tight')
         plt.close()
         
-        print(f"Saved combined ROI visualization to {store_dir}")
+        print(f"Saved combined ROI {group} visualization to {store_dir}")

@@ -288,7 +288,7 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
         for i in range(num_layers):
             print(f"  Layer {i}: mean t = {np.mean((t_vals_dict[contrast_name][i])):.3f}, "
                   f"max |t| = {np.max(np.abs(t_vals_dict[contrast_name][i])):.3f}")
-    
+
     return t_vals_dict, p_vals_dict
 
 def t_test(model, transform, datasets, contrasts, related=False, **kwargs):
@@ -298,4 +298,5 @@ def t_test(model, transform, datasets, contrasts, related=False, **kwargs):
         f'{"_".join(sorted(datasets.keys()))}_'
         f'{"_".join(["".join(map(str, c)) for c in contrasts])}'
     )
-    return cached(cache_key)(_t_test)(model, transform, datasets, contrasts, related=related, **kwargs)
+    t_vals_dict, p_vals_dict = cached(cache_key)(_t_test)(model, transform, datasets, contrasts, related=related, **kwargs)
+    return t_vals_dict, p_vals_dict

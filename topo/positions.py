@@ -5,6 +5,7 @@ import math
 import argparse
 from dataclasses import dataclass
 import logging
+import numpy as np
 from typing import Dict, List, Tuple, Any
 
 from spacetorch.models.positions import (
@@ -23,7 +24,7 @@ from spacetorch.utils.generic_utils import load_config_from_yaml
 from spacetorch.paths import POSITION_DIR
 
 # script constants
-POS_VERSION = 2  # increment this every time the position scheme changes
+POS_VERSION = 3  # increment this every time the position scheme changes
 
 # set up logger
 logging.basicConfig(
@@ -110,6 +111,44 @@ def create_position_dict(cfg: LayerPlacement) -> Dict[str, Any]:
         "dims": cfg.dims,
     }
 
+def create_position_dict_single_sheet(cfgs: List[LayerPlacement]) -> Dict[str, Any]:
+
+    C, H, W = cfgs[0].dims
+    overlap = cfgs[0].rf_overlap
+    for cfg in cfgs[1:]:
+        assert cfg.dims == (C, H, W), "All layers must have the same spatial dimensions for single sheet arrangement"
+        assert math.isclose(cfg.rf_overlap, overlap), "All layers must have the same rf_overlap for single sheet arrangement"
+    num_layers = len(cfgs)
+
+    position_lists = []
+    for i, cfg in enumerate(cfgs):
+        positions, rf_radius = place_conv(
+            dims=cfg.dims,
+            pos_lims=(0, cfg.tissue_size),
+            offset_pattern="random",
+            rf_overlap=cfg.rf_overlap,
+            return_rf_radius=True,
+        )
+        positions[:, 0] += i * cfg.tissue_size
+        position_lists.append(positions)
+
+    positions = np.concatenate(position_lists, axis=0)
+    positions = jitter_positions(positions, jitter=0.3)
+
+    neighborhood_list = precompute_neighborhoods(
+        positions, radius=cfg.neighborhood_width / 2, n_neighborhoods=20_000
+    )
+
+    neighborhoods = collapse_and_trim_neighborhoods(
+        neighborhood_list, keep_fraction=0.95, keep_limit=500, target_shape=None
+    )
+
+    return {
+        "positions": positions,
+        "neighborhoods": neighborhoods,
+        "radius": cfg.neighborhood_width / 2,
+        "dims": (C, H, W * num_layers),
+    }
 
 def create_position_dicts(
     layers: List[LayerString],
@@ -117,6 +156,7 @@ def create_position_dicts(
     layer_tissue_sizes: Dict[LayerString, float],
     layer_neighborhood_widths: Dict[LayerString, float], 
     layer_rf_overlaps: Dict[LayerString, float],
+    single_sheet: bool = False,
     save_dir = None,
 ):
 
@@ -128,28 +168,45 @@ def create_position_dicts(
         layer_rf_overlaps,
     )
 
-    # save each placement config
-    ret = []
-    for cfg in placement_configs:
-        position_dict = create_position_dict(cfg)
+    if not single_sheet:
+        # save each placement config
+        ret = []
+        for cfg in placement_configs:
+            position_dict = create_position_dict(cfg)
+            layer_positions = LayerPositions(
+                name=cfg.name,
+                dims=cfg.dims,
+                coordinates=position_dict["positions"],
+                neighborhood_indices=position_dict["neighborhoods"],
+                neighborhood_width=position_dict["radius"] * 2,
+            )
+            if save_dir is not None:
+                save_dir.mkdir(exist_ok=True, parents=True)
+                logger.info(f"Saving to {save_dir}: {cfg.name}.pkl")
+                layer_positions.save(save_dir)
+            
+            ret.append(layer_positions)
+
+        if save_dir is not None:
+            version_file = save_dir / "version.txt"
+            with open(version_file, "w") as stream:
+                stream.write(str(POS_VERSION))
+
+    else:
+        position_dict = create_position_dict_single_sheet(placement_configs)
         layer_positions = LayerPositions(
-            name=cfg.name,
-            dims=cfg.dims,
+            name="single_sheet",
+            dims=position_dict["dims"],
             coordinates=position_dict["positions"],
             neighborhood_indices=position_dict["neighborhoods"],
             neighborhood_width=position_dict["radius"] * 2,
         )
         if save_dir is not None:
             save_dir.mkdir(exist_ok=True, parents=True)
-            logger.info(f"Saving to {save_dir}: {cfg.name}.pkl")
+            logger.info(f"Saving to {save_dir}: single_sheet.pkl")
             layer_positions.save(save_dir)
-        
-        ret.append(layer_positions)
 
-    if save_dir is not None:
-        version_file = save_dir / "version.txt"
-        with open(version_file, "w") as stream:
-            stream.write(str(POS_VERSION))
+        ret = [layer_positions]
 
     return ret
 

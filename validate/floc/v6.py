@@ -29,8 +29,8 @@ def Pitzalis_category_dataset(data_dir=FLOW, transform=None, frames_per_video=24
     return file_infos
 
 def localize_v6(model, transform, 
-                                batch_size=32, device='cuda', downsampler=None,
-                                video_fps=12, frames_per_video=24):
+                batch_size=32, device='cuda', downsampler=None,
+                video_fps=12, frames_per_video=24):
 
     categories = ["coherent", "scrambled"]
 
