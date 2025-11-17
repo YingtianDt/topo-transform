@@ -85,7 +85,7 @@ def get_placement_configs(
     return placement_configs
 
 
-def create_position_dict(cfg: LayerPlacement) -> Dict[str, Any]:
+def create_position_dict(cfg: LayerPlacement, inf_neighborhood: bool = False) -> Dict[str, Any]:
     positions, rf_radius = place_conv(
         dims=cfg.dims,
         pos_lims=(0, cfg.tissue_size),
@@ -97,7 +97,8 @@ def create_position_dict(cfg: LayerPlacement) -> Dict[str, Any]:
     positions = jitter_positions(positions, jitter=0.3)
 
     neighborhood_list = precompute_neighborhoods(
-        positions, radius=cfg.neighborhood_width / 2, n_neighborhoods=20_000
+        positions, radius=cfg.neighborhood_width / 2, n_neighborhoods=20_000,
+        inf_neighborhood=inf_neighborhood
     )
 
     neighborhoods = collapse_and_trim_neighborhoods(
@@ -157,6 +158,7 @@ def create_position_dicts(
     layer_neighborhood_widths: Dict[LayerString, float], 
     layer_rf_overlaps: Dict[LayerString, float],
     single_sheet: bool = False,
+    inf_neighborhood: bool = False,
     save_dir = None,
 ):
 
@@ -172,7 +174,7 @@ def create_position_dicts(
         # save each placement config
         ret = []
         for cfg in placement_configs:
-            position_dict = create_position_dict(cfg)
+            position_dict = create_position_dict(cfg, inf_neighborhood=inf_neighborhood)
             layer_positions = LayerPositions(
                 name=cfg.name,
                 dims=cfg.dims,

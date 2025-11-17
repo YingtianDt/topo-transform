@@ -13,7 +13,7 @@ import numpy as np
 
 from models import VJEPA, UniFormer, MViTV1
 from topo import TopoTransformedVJEPA, SpatialCorrelationLoss
-from data.smthsmthv2 import SmthSmthV2
+from data import SmthSmthV2, Kinetics400, ImageNetVid
 from validate import load_transformed_model, validate_autocorr, validate_floc
 
 
@@ -32,10 +32,10 @@ vit_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-def get_config_id(model_name, lr, batch_size=32):
+def get_config_id(model_name, data_name, lr, batch_size=32):
     """Generate unique config identifier"""
     lr_str = f"lr{lr}".replace('.', 'p') if lr >= 0.001 else f"lr{lr:.0e}".replace('e-0', 'e-').replace('e+0', 'e')
-    return f"{model_name}_{lr_str}_bs{batch_size}"
+    return f"{model_name}_{data_name}_{lr_str}_bs{batch_size}"
 
 
 def train_model(model, train_loader, val_loader, criterion, config_id, storage, figure_dir,
@@ -136,7 +136,7 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
                 "pitzalis",
                 "motion", 
                 "temporal",
-                "pitcher",
+                # "pitcher",
             ],
             viz_dir=figure_dir,
             device=device,
@@ -199,6 +199,7 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 if __name__ == '__main__':
     # Config
     model_name = 'vjepa'
+    data_name = 'smthsmthv2'  # 'smthsmthv2', 'kinetics400', 'imagenet'
     layer_indices = [14, 18, 22] 
     batch_size = 32
     lr = 1e-4
@@ -206,6 +207,8 @@ if __name__ == '__main__':
     neighborhoods_per_batch = 128
     exponentially_interpolate = False
     constant_rf_overlap = False
+    large_neighborhood = False
+    inf_neighborhood = True
     single_sheet = True
     use_wandb, wandb_project = True, 'tdann-transform'
     resume_training = False
@@ -217,7 +220,14 @@ if __name__ == '__main__':
     np.random.seed(seed)
     
     # Data
-    data = SmthSmthV2(train_transforms=vit_transform, test_transforms=vit_transform)
+    if data_name == 'smthsmthv2':
+        data = SmthSmthV2(train_transforms=vit_transform, test_transforms=vit_transform)
+    elif data_name == 'kinetics400':
+        data = Kinetics400(train_transforms=vit_transform, test_transforms=vit_transform)
+    elif data_name == 'imagenet':
+        data = ImageNetVid(train_transforms=vit_transform, test_transforms=vit_transform)
+    else:
+        raise ValueError(f"Unknown dataset: {data_name}")
     train_loader = DataLoader(data.trainset, batch_size=batch_size, shuffle=True, 
                              num_workers=int(batch_size/1.5), pin_memory=True)
     val_loader = DataLoader(data.valset, batch_size=batch_size, shuffle=False, 
@@ -225,8 +235,8 @@ if __name__ == '__main__':
     
     # Model setup
     model = TopoTransformedVJEPA(layer_indices=layer_indices, exponentially_interpolate=exponentially_interpolate, constant_rf_overlap=constant_rf_overlap, 
-                                 single_sheet=single_sheet, seed=seed)
-    config_id = get_config_id(model.name, lr, batch_size)
+                                 single_sheet=single_sheet, large_neighborhood=large_neighborhood, inf_neighborhood=inf_neighborhood, seed=seed)
+    config_id = get_config_id(model.name, data_name, lr, batch_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     neighborhoods_per_batch = neighborhoods_per_batch if not single_sheet else neighborhoods_per_batch * len(layer_indices)
     criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch, single_sheet=single_sheet)

@@ -27,7 +27,7 @@ def validate_invertibility(model, transform, dataset_name='ssv2', duration=2000,
     loader = DataLoader(
         dataset, 
         batch_size=batch_size, 
-        num_workers=min(8, int(batch_size/1.5)),
+        num_workers=int(batch_size/1.5),
         shuffle=False,
         pin_memory=True
     )

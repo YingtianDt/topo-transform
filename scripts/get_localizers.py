@@ -1,39 +1,26 @@
 from utils import cached
-from .utils import *
+from models import vit_transform
+from validate.floc import *
+from validate import loadload_transformed_model
 
-from .categories import localize_categories
-from .temporal import localize_temporal
-from .motion import localize_motion
-from .v6 import localize_v6
-from .psts import localize_psts
-from .pitcher import localize_pitcher
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal']
 
-def validate_floc(
-        model, 
-        transform, 
+def _localizers(
+        checkpoint_name, 
         dataset_names, 
-        epoch=None, 
-        viz_dir=None, 
-        viz_patches=False, 
-        viz_params=None,
-        batch_size=32, 
         device='cuda',
         frames_per_video=24,
         video_fps=12,
-        plot_individual=False,
-        plot_aggregate=False,
     ):
 
     if viz_params is None:
         viz_params = {}
 
+    model = loadload_transformed_model(checkpoint_name=checkpoint_name, device=device)
+    model.eval()
+    transform = vit_transform
     layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
-
-    if viz_dir is not None and epoch is None:
-        viz_dir = viz_dir / "eval"
-        viz_dir.mkdir(parents=True, exist_ok=True)
 
     t_vals_dicts = []
     for dataset_name in dataset_names:
@@ -98,12 +85,13 @@ def validate_floc(
 
         t_vals_dicts.append(t_vals_dict)
 
-        if viz_dir is not None and plot_individual:
-            suffix = f'_{epoch+1}' if epoch is not None else ''
-            visualize_tvals(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=suffix, **viz_params)
-            if viz_patches:
-                visualize_patches(t_vals_dict, layer_positions, viz_dir, prefix=f'{dataset_name}_', suffix=f'_patches{suffix}')
+    return t_vals_dicts, layer_positions
 
-    if viz_dir is not None and plot_aggregate:
-        suffix = f'_{epoch+1}' if epoch is not None else ''
-        visualize_all_rois_v2(t_vals_dicts, layer_positions, viz_dir, prefix=f'rois_', suffix=suffix)
+
+def localizers(checkpoint_name, dataset_names=FLOC_DATASETS, device='cuda', frames_per_video=24, video_fps=12):
+    import hashlib
+    dataset_str = '_'.join(sorted(dataset_names))
+    hash_suffix = hashlib.md5(dataset_str.encode()).hexdigest()[:8]
+    return cached(f"localizers_{checkpoint_name}_{hash_suffix}")(
+        _localizers
+    )(checkpoint_name, dataset_names, device=device, frames_per_video=frames_per_video, video_fps=video_fps)

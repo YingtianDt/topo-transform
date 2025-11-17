@@ -228,7 +228,7 @@ def collapse_and_trim_neighborhoods(
 
 
 def precompute_neighborhoods(
-    positions: np.ndarray, radius: float = 0.5, n_neighborhoods: int = 10
+    positions: np.ndarray, radius: float = 0.5, n_neighborhoods: int = 10, inf_neighborhood: bool = False
 ):
     """
     Inputs:
@@ -236,17 +236,31 @@ def precompute_neighborhoods(
         radius: radius for a neighborhood (width will be 2 * radius)
         n_neighborhoods: how many neighborhoods to generate
     """
-    start_xs = np.random.uniform(
-        low=np.min(positions[:, 0]) + radius,
-        high=np.max(positions[:, 0]) - radius,
-        size=(n_neighborhoods,),
-    )
+    if not inf_neighborhood:
+        start_xs = np.random.uniform(
+            low=np.min(positions[:, 0]) + radius,
+            high=np.max(positions[:, 0]) - radius,
+            size=(n_neighborhoods,),
+        )
 
-    start_ys = np.random.uniform(
-        low=np.min(positions[:, 1]) + radius,
-        high=np.max(positions[:, 1]) - radius,
-        size=(n_neighborhoods,),
-    )
+        start_ys = np.random.uniform(
+            low=np.min(positions[:, 1]) + radius,
+            high=np.max(positions[:, 1]) - radius,
+            size=(n_neighborhoods,),
+        )
+    else:
+        start_xs = np.random.uniform(
+            low=np.min(positions[:, 0]),
+            high=np.max(positions[:, 0]),
+            size=(n_neighborhoods,),
+        )
+
+        start_ys = np.random.uniform(
+            low=np.min(positions[:, 1]),
+            high=np.max(positions[:, 1]),
+            size=(n_neighborhoods,),
+        )
+
 
     neighborhoods = [
         indices_within_limits(

@@ -219,11 +219,6 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
     """
     os.makedirs(store_dir, exist_ok=True)
 
-    # BUG:
-    print(f"***BUG: visualize_all_rois_v2 only visualizes last 5 layers! at {__file__}:{__line__}")
-    t_vals_dicts = [{k: v[-5:] for k, v in t_val_dict.items()} for t_val_dict in t_vals_dicts]
-    layer_positions = layer_positions[-5:]
-
     all_roi_colors = {
         # static categorical ROIs - saturated, bold colors
         "face": ("static-face", (0.75, 0.00, 0.00)),        # crimson

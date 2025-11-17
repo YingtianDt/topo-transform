@@ -73,10 +73,11 @@ class TopoTransformedModel(nn.Module):
             ret_positions.append(layer_pos_smoothed)
         return ret_features, ret_positions 
 
-    def forward(self, inputs, smoothing=False):
+    def forward(self, inputs, smoothing=False, do_transform=True):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
-        layer_features = self.transform(layer_features)
+        if do_transform:
+            layer_features = self.transform(layer_features)
         layer_positions = [self.layer_positions[i] for i in self.output_layer_indices]
 
         if smoothing:
@@ -87,7 +88,7 @@ class TopoTransformedModel(nn.Module):
 
 class TopoTransformedVJEPA(TopoTransformedModel):
     def __init__(self, layer_indices=[14,18,22], smoothing=False, exponentially_interpolate=False, 
-                constant_rf_overlap=False, rebuild=False, single_sheet=True, seed=42):
+                constant_rf_overlap=False, rebuild=False, single_sheet=True, large_neighborhood=False, inf_neighborhood=False, seed=42):
         from models import VJEPA
         from .features import VJEPAFeatureExtractor
         from .layer import TopoTransform
@@ -108,6 +109,12 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         if single_sheet:
             name += '_single'
 
+        if large_neighborhood:
+            name += '_neighbL'
+
+        if inf_neighborhood:
+            name += '_neighbInf'
+
         self.single_sheet = single_sheet
         self.smoothing = smoothing
         
@@ -122,7 +129,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
             get_tissue_configs = _get_tissue_configs_v3 if single_sheet else _get_tissue_configs
             layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps = get_tissue_configs(
                 layer_indices, layer_assignments=VJEPA_LAYER_ASSIGNMENTS, exponentially_interpolate=exponentially_interpolate, 
-                constant_rf_overlap=constant_rf_overlap
+                constant_rf_overlap=constant_rf_overlap, large_neighborhood=large_neighborhood, inf_neighborhood=inf_neighborhood
             )
 
             layer_dims = {name: v for name, v in zip(extractor.layer_names, extractor.layer_dims)}
@@ -139,6 +146,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                 layer_rf_overlaps,
                 save_dir=layer_config_dir,
                 single_sheet=single_sheet,
+                inf_neighborhood=inf_neighborhood,
             )
         else:
             print("Loading layer positions...")
@@ -158,8 +166,8 @@ class TopoTransformedVJEPA(TopoTransformedModel):
 
         super().__init__(name, model, extractor, layer_positions, transform, rebuild, seed)
 
-    def forward(self, inputs, smoothing=False):
-        layer_features, layer_positions = super().forward(inputs, smoothing=False)
+    def forward(self, inputs, smoothing=False, do_transform=True):
+        layer_features, layer_positions = super().forward(inputs, smoothing=False, do_transform=do_transform)
         if self.single_sheet:
             # concatenate features along width
             concatenated_features = []

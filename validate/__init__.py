@@ -7,7 +7,7 @@ from .floc import *
 from .invertible import validate_invertibility
 
 
-def load_transformed_model(layer_indices=range(8, 24), checkpoint_name=None, checkpoint_path=None, device='cuda'):
+def load_transformed_model(layer_indices=[14,18,22], checkpoint_name=None, checkpoint_path=None, device='cuda'):
     """Load a trained TopoTransformedVJEPA model."""
     assert checkpoint_path is not None or checkpoint_name is not None, \
         "Either checkpoint_name or checkpoint_path must be provided."

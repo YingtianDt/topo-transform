@@ -3,6 +3,7 @@ from typing import Tuple, Optional, List
 
 import torch
 from torch.utils.data import Dataset
+import numpy as np
 
 # Assume these exist in utils module
 from .utils import video_from_imgs, Image
@@ -20,6 +21,7 @@ class ImageNetVid:
         train_transforms: Optional[List[str]] = None,
         test_transforms: Optional[List[str]] = None,
         debug: bool = False,
+        subsample_factor: float = 0.01,
     ):
         """
         Args:
@@ -44,7 +46,8 @@ class ImageNetVid:
             duration=duration,
             size=size,
             split='train',
-            shake=shake_intensity
+            shake=shake_intensity,
+            subsample_factor=subsample_factor
         )
         self.valset = _ImageNetVid(
             videos_root,
@@ -53,12 +56,9 @@ class ImageNetVid:
             duration=duration,
             size=size,
             split='val',
-            shake=shake_intensity
+            shake=shake_intensity,
+            subsample_factor=0.02
         )
-
-        if not debug:
-            assert self.trainset.num_classes == self.valset.num_classes == 1000, \
-                f"Expected 1000 classes, got train={self.trainset.num_classes}, val={self.valset.num_classes}"
 
     @property
     def num_classes(self):
@@ -74,7 +74,8 @@ class _ImageNetVid(Dataset):
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
         split: str = 'train',
-        shake: int = 0
+        shake: int = 0,
+        subsample_factor: float = 1.0,
     ):
         """
         Args:
@@ -110,6 +111,13 @@ class _ImageNetVid(Dataset):
                 if fname.lower().endswith(('png', 'jpg', 'jpeg')):
                     self.image_paths.append(os.path.join(class_dir, fname))
                     self.labels.append(self.class_to_idx[class_name])
+
+        if subsample_factor < 1.0:
+            num_images = len(self.image_paths)
+            subsample_size = int(num_images * subsample_factor)
+            selected_indices = list(np.random.choice(num_images, subsample_size, replace=False))
+            self.image_paths = [self.image_paths[i] for i in selected_indices]
+            self.labels = [self.labels[i] for i in selected_indices]
     
     def __getitem__(self, idx: int) -> Tuple:
         """Get video data from static image."""

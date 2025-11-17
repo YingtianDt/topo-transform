@@ -40,7 +40,7 @@ VJEPA_LAYER_ASSIGNMENTS = {
 }
 INITIAL_RF_OVERLAP = 0.1
 
-def _get_tissue_configs(layer_indices, layer_assignments, exponentially_interpolate=False, constant_rf_overlap=False):
+def _get_tissue_configs(layer_indices, layer_assignments, exponentially_interpolate=False, constant_rf_overlap=False, large_neighborhood=False):
     layer_tissue_sizes = []
     layer_neighborhood_widths = []
     layer_rf_overlaps = []
@@ -86,6 +86,9 @@ def _get_tissue_configs(layer_indices, layer_assignments, exponentially_interpol
     layer_neighborhood_widths = [layer_neighborhood_widths[i] for i in layer_indices]
     layer_rf_overlaps = [layer_rf_overlaps[i] for i in layer_indices]
     
+    if large_neighborhood:
+        layer_neighborhood_widths = [size for size in layer_tissue_sizes]
+
     print("Layer tissue sizes:", layer_tissue_sizes)
     print("Layer neighborhood widths:", layer_neighborhood_widths)
     print("Layer RF overlaps:", layer_rf_overlaps)
@@ -93,7 +96,7 @@ def _get_tissue_configs(layer_indices, layer_assignments, exponentially_interpol
     return layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps
 
 
-def _get_tissue_configs_v2(layer_indices, layer_assignments, exponentially_interpolate=True, constant_rf_overlap=False):
+def _get_tissue_configs_v2(layer_indices, layer_assignments, exponentially_interpolate=True, constant_rf_overlap=False, large_neighborhood=False):
     layer_tissue_sizes = []
     layer_neighborhood_widths = []
     layer_rf_overlaps = []
@@ -119,6 +122,9 @@ def _get_tissue_configs_v2(layer_indices, layer_assignments, exponentially_inter
     layer_tissue_sizes = [layer_tissue_sizes[i] for i in layer_indices]
     layer_neighborhood_widths = [layer_neighborhood_widths[i] for i in layer_indices]
     layer_rf_overlaps = [layer_rf_overlaps[i] for i in layer_indices]
+
+    if large_neighborhood:
+        layer_neighborhood_widths = [size for size in layer_tissue_sizes]
     
     print("Layer tissue sizes:", layer_tissue_sizes)
     print("Layer neighborhood widths:", layer_neighborhood_widths)
@@ -140,13 +146,19 @@ def _exponentially_interpolate(start, end, num_points, lower_bound=0.01):
 
 # single cortical sheet arrangement based on NSD stream rois
 # assume high ventral, lateral, dorsal regions have similar tissue sizes and neighborhood widths 
-def _get_tissue_configs_v3(layer_indices, layer_assignments=None, exponentially_interpolate=True, constant_rf_overlap=False):
+def _get_tissue_configs_v3(layer_indices, layer_assignments=None, exponentially_interpolate=True, constant_rf_overlap=False, large_neighborhood=False, inf_neighborhood=False):
     for layer_index in layer_indices:
         assert layer_index in [14, 18, 22]
 
     layer_tissue_sizes = [TISSUE_SIZES['VTC']] * len(layer_indices)
     layer_neighborhood_widths = [NEIGHBORHOOD_WIDTHS['VTC']] * len(layer_indices)
     layer_rf_overlaps = [1] * len(layer_indices)
+
+    if large_neighborhood:
+        layer_neighborhood_widths = [size for size in layer_tissue_sizes]
+
+    if inf_neighborhood:
+        layer_neighborhood_widths = [np.inf for _ in layer_tissue_sizes]
 
     print("Layer tissue sizes:", layer_tissue_sizes)
     print("Layer neighborhood widths:", layer_neighborhood_widths)

@@ -4,11 +4,13 @@ from scipy import stats
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 import copy
+import os
 
 from utils import cached
 from data import Kinetics400
 from .categories import KANWISHER
 from .utils import t_test, CategoryDataset
+from collections import defaultdict
 
 
 class MovingDataset(CategoryDataset):
@@ -56,7 +58,7 @@ def KANWISHER_dynamic_static_category_dataset(data_dir=KANWISHER, transform=None
     return ret
 
 def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
-                     batch_size=32, device='cuda', num_samples=256, seed=42):
+                     batch_size=32, device='cuda', num_samples=256, seed=42, downsampler=None):
     
     categories = [
         "Faces_moving", "Faces_static",
@@ -82,11 +84,12 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
         video_fps=video_fps, frames_per_video=frames_per_video
     )[0]
 
+    # Use contrast indices (0-3) to access results
     ret = {
-        "Faces_moving_vs_static": t_vals_dict["Faces_moving_vs_Faces_static"],
-        "Bodies_moving_vs_static": t_vals_dict["Bodies_moving_vs_Bodies_static"],
-        "Scenes_moving_vs_static": t_vals_dict["Scenes_moving_vs_Scenes_static"],
-        "Objects_moving_vs_static": t_vals_dict["Objects_moving_vs_Objects_static"],
+        "Faces_moving_vs_static": t_vals_dict[0],
+        "Bodies_moving_vs_static": t_vals_dict[1],
+        "Scenes_moving_vs_static": t_vals_dict[2],
+        "Objects_moving_vs_static": t_vals_dict[3],
     }
 
     return ret

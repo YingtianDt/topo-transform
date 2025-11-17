@@ -4,7 +4,7 @@ import glob
 from typing import Optional, Tuple, List, Callable
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 
 from .utils.transforms import Transforms
 from .utils import ListData, video_from_imgs
@@ -18,10 +18,11 @@ class Kinetics400:
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
         train_transforms: Optional[Callable] = None,
-        val_transforms: Optional[Callable] = None,
+        test_transforms: Optional[Callable] = None,
         shuffle: bool = False,
         static: bool = False,
-        debug: bool = False
+        debug: bool = False,
+        subsample_factor: float = 0.1,
     ):
         """
         Kinetics400 dataset wrapper.
@@ -32,22 +33,21 @@ class Kinetics400:
             duration: Duration in milliseconds to sample from each video
             size: (width, height) for video frames
             train_transforms: Transforms to apply to training data
-            val_transforms: Transforms to apply to validation data
+            test_transforms: Transforms to apply to validation data
             shuffle: Whether to shuffle frames temporally
             static: Whether to repeat a single random frame
             debug: If False, asserts that both splits have 400 classes
         """
         self.trainset = _Kinetics400(
             root, train=True, transforms=train_transforms,
-            fps=fps, duration=duration, size=size, shuffle=shuffle, static=static
+            fps=fps, duration=duration, size=size, shuffle=shuffle, static=static,
+            subsample_factor=subsample_factor
         )
         self.valset = _Kinetics400(
-            root, train=False, transforms=val_transforms,
-            fps=fps, duration=duration, size=size, shuffle=shuffle, static=static
+            root, train=False, transforms=test_transforms,
+            fps=fps, duration=duration, size=size, shuffle=shuffle, static=static,
+            subsample_factor=0.02
         )
-
-        if not debug:
-            assert self.trainset.num_classes == self.valset.num_classes == 400
 
     @property
     def num_classes(self) -> int:
@@ -64,7 +64,8 @@ class _Kinetics400(Dataset):
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
         shuffle: bool = False,
-        static: bool = False
+        static: bool = False,
+        subsample_factor: float = 1.0,
     ):
         """
         Internal Kinetics400 dataset implementation.
@@ -91,6 +92,13 @@ class _Kinetics400(Dataset):
         self.static = static
 
         self.video_paths = glob.glob(os.path.join(self.root, "*/*.mp4"))
+
+        # randomly subsample the dataset if subsample_factor < 1.0
+        if subsample_factor < 1.0:
+            num_videos = len(self.video_paths)
+            subsample_size = int(num_videos * subsample_factor)
+            self.video_paths = list(np.random.choice(self.video_paths, subsample_size))
+
         self.classes = self._load_classes()
 
     def _load_classes(self) -> dict:
@@ -147,6 +155,8 @@ class _Kinetics400(Dataset):
             idx = torch.randperm(data.shape[1])[0]
             data = data[:, idx:idx+1, :, :].repeat(1, data.shape[1], 1, 1)
             
+        data = data.permute(1, 0, 2, 3)  # TCHW
+
         return data, label, self.dataset_name
     
     def __len__(self) -> int:

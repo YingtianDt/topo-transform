@@ -10,8 +10,10 @@ if (env_path := HOME_DIR / ".env").exists():
 
 CACHE_DIR = HOME_DIR / 'cache'
 DEBUG_DIR = CACHE_DIR / 'debug'
+PLOTS_DIR = CACHE_DIR / 'plots'
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 os.environ["RESULTCACHING_HOME"] = str(CACHE_DIR / "resultcaching")
 os.environ['MMAP_HOME'] = str(CACHE_DIR / 'mmap')
@@ -24,4 +26,14 @@ os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
 DEBUG = False
-RERUN = True
+RERUN = not DEBUG
+
+if DEBUG:
+    print("*" * 100)
+    print(" " * 35 + "WARNING: DEBUG MODE IS ON.")
+    print("*" * 100)
+
+
+# from matplotlib import rcParams
+# rcParams['font.family'] = 'Arial'
+# rcParams['mathtext.fontset'] = 'dejavusans'
