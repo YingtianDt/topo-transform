@@ -6,6 +6,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from .get_validate_features import validate_features
 from config import PLOTS_DIR
+from .common import MODEL_CKPT
 
 
 # Create custom colormap from gray -> white -> red
@@ -249,7 +250,7 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
 
 
 if __name__ == '__main__':
-    all_features, positions = validate_features('best_transformed_model_vjepa_14_18_22_single_lr1e-4_bs32.pt')
+    all_features, positions = validate_features(MODEL_CKPT)
     viz_dir = PLOTS_DIR / 'plot_autocorr'
     viz_dir.mkdir(parents=True, exist_ok=True)
 

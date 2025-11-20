@@ -6,6 +6,15 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
 
+def _fill_nan_with_zero(t_vals_dict):
+    t_vals_dict_filled = {}
+    for cat_name, t_vals_list in t_vals_dict.items():
+        if not isinstance(t_vals_list, list):
+            t_vals_list = [t_vals_list]
+        t_vals_filled = [np.nan_to_num(t_vals_layer, nan=0.0) for t_vals_layer in t_vals_list]
+        t_vals_dict_filled[cat_name] = t_vals_filled
+    return t_vals_dict_filled
+
 def visualize_tvals(t_vals_dict, layer_positions, store_dir, figsize_per_panel=5, prefix='', suffix='', 
                     topk_percent=100, dpi=150):
     """Visualize t-statistics for each category and layer.
@@ -18,6 +27,9 @@ def visualize_tvals(t_vals_dict, layer_positions, store_dir, figsize_per_panel=5
         topk_percent: float, percentage of units to highlight (default: 100)
     """
     os.makedirs(store_dir, exist_ok=True)
+    
+    # make a copy
+    t_vals_dict = _fill_nan_with_zero(t_vals_dict)
     
     categories = list(t_vals_dict.keys())
     n_layers = len(t_vals_dict[categories[0]]) if categories else 0
@@ -104,6 +116,8 @@ def visualize_all_rois(t_vals_dicts, layer_positions, store_dir, figsize_per_pan
     if isinstance(t_vals_dicts, dict):
         t_vals_dicts = [t_vals_dicts]
     
+    t_vals_dicts = [_fill_nan_with_zero(t_vals_dict) for t_vals_dict in t_vals_dicts]
+
     # Collect all ROI names (categories) across all dicts
     all_rois = []
     for t_vals_dict in t_vals_dicts:
@@ -219,6 +233,12 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
     """
     os.makedirs(store_dir, exist_ok=True)
 
+    # Handle both single dict and list of dicts
+    if isinstance(t_vals_dicts, dict):
+        t_vals_dicts = [t_vals_dicts]
+
+    t_vals_dicts = [_fill_nan_with_zero(t_vals_dict) for t_vals_dict in t_vals_dicts]
+
     all_roi_colors = {
         # static categorical ROIs - saturated, bold colors
         "face": ("static-face", (0.75, 0.00, 0.00)),        # crimson
@@ -257,10 +277,6 @@ def visualize_all_rois_v2(t_vals_dicts, layer_positions, store_dir, figsize_per_
         "place": ["place", "Scenes", *motion_vs_statics],
     }.items():
         roi_colors = {roi: all_roi_colors[roi] for roi in group_rois}
-
-        # Handle both single dict and list of dicts
-        if isinstance(t_vals_dicts, dict):
-            t_vals_dicts = [t_vals_dicts]
         
         # Combine all dicts
         combined_t_vals_dict = {}

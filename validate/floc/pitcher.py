@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from scipy import stats
 from torch.utils.data import DataLoader, Dataset, Subset
+from collections import defaultdict
 from tqdm import tqdm
 import copy
 import os
@@ -10,8 +11,9 @@ from utils import cached
 from data import Kinetics400
 from .categories import KANWISHER
 from .utils import t_test, CategoryDataset
-from collections import defaultdict
 
+
+KUCUK2024 = "/mnt/scratch/ytang/datasets/fsaverage_surfaces_pitcher"
 
 class MovingDataset(CategoryDataset):
     def __init__(self, *args, mode='moving', seed=42, **kwargs):
@@ -79,6 +81,14 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
             (0, 0, 1, -1, 0, 0, 0, 0),   # Bodies moving vs static
             (0, 0, 0, 0, 1, -1, 0, 0),   # Scenes moving vs static
             (0, 0, 0, 0, 0, 0, 1, -1),   # Objects moving vs static
+            (1, 0, 0, 0, 0, 0, 0, 0),    # Faces moving overall
+            (0, 1, 0, 0, 0, 0, 0, 0),    # Faces static overall
+            (0, 0, 1, 0, 0, 0, 0, 0),    # Bodies moving overall
+            (0, 0, 0, 1, 0, 0, 0, 0),    # Bodies static overall
+            (0, 0, 0, 0, 1, 0, 0, 0),    # Scenes moving overall
+            (0, 0, 0, 0, 0, 1, 0, 0),    # Scenes static overall
+            (0, 0, 0, 0, 0, 0, 1, 0),    # Objects moving overall
+            (0, 0, 0, 0, 0, 0, 0, 1),    # Objects static overall
         ],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
@@ -86,10 +96,33 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
 
     # Use contrast indices (0-3) to access results
     ret = {
-        "Faces_moving_vs_static": t_vals_dict[0],
-        "Bodies_moving_vs_static": t_vals_dict[1],
-        "Scenes_moving_vs_static": t_vals_dict[2],
-        "Objects_moving_vs_static": t_vals_dict[3],
+        "Faces_moving_vs_static": t_vals_dict["Faces_moving_vs_Faces_static"],
+        "Bodies_moving_vs_static": t_vals_dict["Bodies_moving_vs_Bodies_static"],
+        "Scenes_moving_vs_static": t_vals_dict["Scenes_moving_vs_Scenes_static"],
+        "Objects_moving_vs_static": t_vals_dict["Objects_moving_vs_Objects_static"],
+        "Faces_moving": t_vals_dict["Faces_moving_vs_baseline"],
+        "Faces_static": t_vals_dict["Faces_static_vs_baseline"],
+        "Bodies_moving": t_vals_dict["Bodies_moving_vs_baseline"],
+        "Bodies_static": t_vals_dict["Bodies_static_vs_baseline"],
+        "Scenes_moving": t_vals_dict["Scenes_moving_vs_baseline"],
+        "Scenes_static": t_vals_dict["Scenes_static_vs_baseline"],
+        "Objects_moving": t_vals_dict["Objects_moving_vs_baseline"],
+        "Objects_static": t_vals_dict["Objects_static_vs_baseline"],
     }
+
+    return ret
+
+
+def localize_pitcher_human():
+    categories = ["Faces", "Bodies", "Scenes", "Objects"]
+    conditions = {"moving": "dyn", "static": "stat"}
+
+    ret = {}
+    for category in categories:
+        for cond_name, cond_suffix in conditions.items():
+            roi_name = f"{category.lower()}{cond_suffix}:t-stat.npy"
+            filepath = os.path.join(KUCUK2024, roi_name)
+            t_vals = np.load(filepath, allow_pickle=True)
+            ret[f"{category}_{cond_name}"] = t_vals
 
     return ret

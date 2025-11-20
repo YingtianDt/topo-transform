@@ -32,6 +32,9 @@ def get_data_loader(dataset, batch_size, shuffle=False, num_workers=8):
         num_workers=num_workers,
         pin_memory=True,
         prefetch_factor=2,
+        # num_workers=0,
+        # pin_memory=False,
+        # prefetch_factor=None,
     )
 
 

@@ -9,6 +9,7 @@ from PIL import Image
 from scipy import stats
 
 import os
+import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -264,39 +265,69 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
     for contrast in contrasts:
         positive_cats = [categories[i] for i, c in enumerate(contrast) if c == 1]
         negative_cats = [categories[i] for i, c in enumerate(contrast) if c == -1]
-        contrast_name = "_vs_".join(["+".join(positive_cats), "+".join(negative_cats)])
-        print(f"Computing t-stats for {contrast_name}...")
+        
+        # Check if there are no negative values (i.e., testing positive categories against baseline)
+        if len(negative_cats) == 0:
+            # One-sample t-test against 0
+            contrast_name = "_vs_baseline".join(["+".join(positive_cats), ""])
+            print(f"Computing t-stats for {contrast_name} (one-sample t-test against 0)...")
+            
+            num_layers = len(category_feats[positive_cats[0]])
+            positive_feats = [
+                np.concatenate([category_feats[cat][i] for cat in positive_cats], axis=0)
+                for i in range(num_layers)
+            ]
+            
+            # Use one-sample t-test against 0
+            for i in range(num_layers):
+                ts, ps = stats.ttest_1samp(positive_feats[i], 0, axis=0)
+                t_vals_dict[contrast_name].append(ts)
+                p_vals_dict[contrast_name].append(ps)
+        else:
+            # Two-sample t-test (original code)
+            contrast_name = "_vs_".join(["+".join(positive_cats), "+".join(negative_cats)])
+            print(f"Computing t-stats for {contrast_name}...")
 
-        num_layers = len(category_feats[positive_cats[0]])
-        positive_feats = [
-            np.concatenate([category_feats[cat][i] for cat in positive_cats], axis=0)
-            for i in range(num_layers)
-        ]
-        negative_feats = [
-            np.concatenate([category_feats[cat][i] for cat in negative_cats], axis=0)
-            for i in range(num_layers)
-        ]
-        ttest_alg = stats.ttest_ind if not related else stats.ttest_rel
-        for i in range(num_layers):
-            ts, ps = ttest_alg(
-                positive_feats[i], negative_feats[i], axis=0
-            )
-            t_vals_dict[contrast_name].append(ts)
-            p_vals_dict[contrast_name].append(ps)
+            num_layers = len(category_feats[positive_cats[0]])
+            positive_feats = [
+                np.concatenate([category_feats[cat][i] for cat in positive_cats], axis=0)
+                for i in range(num_layers)
+            ]
+            negative_feats = [
+                np.concatenate([category_feats[cat][i] for cat in negative_cats], axis=0)
+                for i in range(num_layers)
+            ]
+            ttest_alg = stats.ttest_ind if not related else stats.ttest_rel
+            for i in range(num_layers):
+                ts, ps = ttest_alg(
+                    positive_feats[i], negative_feats[i], axis=0
+                )
+                t_vals_dict[contrast_name].append(ts)
+                p_vals_dict[contrast_name].append(ps)
 
         # Print summary statistics
         for i in range(num_layers):
             print(f"  Layer {i}: mean t = {np.mean((t_vals_dict[contrast_name][i])):.3f}, "
                   f"max |t| = {np.max(np.abs(t_vals_dict[contrast_name][i])):.3f}")
-
+                  
     return t_vals_dict, p_vals_dict
 
 def t_test(model, transform, datasets, contrasts, related=False, **kwargs):
     """Wrapper function for t_test with caching."""
+
+    contrast_hash = hashlib.md5(str(contrasts).encode()).hexdigest()
     cache_key = (
         f'ttest{"_rel" if related else ""}_{model.name}_'
         f'{"_".join(sorted(datasets.keys()))}_'
-        f'{"_".join(["".join(map(str, c)) for c in contrasts])}'
+        f'{contrast_hash}'
     )
+
+    if model.smoothing:
+        cache_key += f'_smoothed_fwhm{model.fwhm_mm}_res{model.resolution_mm}'
+
     t_vals_dict, p_vals_dict = cached(cache_key)(_t_test)(model, transform, datasets, contrasts, related=related, **kwargs)
+    
+    t_vals_dict = dict(t_vals_dict)
+    p_vals_dict = dict(p_vals_dict)
+
     return t_vals_dict, p_vals_dict

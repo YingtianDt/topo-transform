@@ -28,9 +28,9 @@ def crop_config_id(ckpt_name):
 
 
 if __name__ == '__main__':
-    model_name = "best_transformed_model_vjepa_8_10_12_14_16_18_20_22_lr1e-4_bs32.pt"
+    model_name = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_smthsmthv2_lr1e-4_bs32.pt"
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model, epoch = load_transformed_model(layer_indices=range(8, 24, 2), checkpoint_name=model_name, device=device)
+    model, epoch = load_transformed_model(checkpoint_name=model_name, device=device)
 
     config_id = crop_config_id(model_name)
 
@@ -42,22 +42,25 @@ if __name__ == '__main__':
     }
 
     # validate_invertibility(model, vit_transform)
-    validate_floc(
-        model, 
-        vit_transform, 
-        dataset_names=[
-            # "biomotion", 
-            # "vpnl", 
-            # "kanwisher", 
-            # "pitzalis",
-            # "motion", 
-            # "temporal",
-            "pitcher",
-        ],
-        viz_dir=figure_dir,
-        viz_params=viz_params,
-        batch_size=32,
-        device=device,
-        plot_individual=True,
-        plot_aggregate=False,
-    )
+    with model.smoothing_enabled(fwhm_mm=2.0, resolution_mm=1.0):
+        validate_floc(
+            model, 
+            vit_transform, 
+            dataset_names=[
+                "biomotion", 
+                "vpnl", 
+                "kanwisher", 
+                "pitzalis",
+                # "motion", 
+                # "temporal",
+                # "pitcher",
+                # "robert",
+            ],
+            viz_dir=figure_dir,
+            viz_params=viz_params,
+            batch_size=32,
+            device=device,
+            viz_patches=True,
+            plot_individual=True,
+            plot_aggregate=False,
+        )

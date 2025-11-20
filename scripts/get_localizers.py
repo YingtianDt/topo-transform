@@ -1,7 +1,7 @@
 from utils import cached
 from models import vit_transform
 from validate.floc import *
-from validate import loadload_transformed_model
+from validate import load_transformed_model
 
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal']
@@ -17,7 +17,7 @@ def _localizers(
     if viz_params is None:
         viz_params = {}
 
-    model = loadload_transformed_model(checkpoint_name=checkpoint_name, device=device)
+    model = load_transformed_model(checkpoint_name=checkpoint_name, device=device)
     model.eval()
     transform = vit_transform
     layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]

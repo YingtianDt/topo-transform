@@ -12,7 +12,8 @@ from functools import wraps
 def cached(
     cache_name: str,
     cache_dir: Optional[Path] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    persistent: bool = False,
 ):
     """Decorator for caching function results.
     
@@ -30,7 +31,7 @@ def cached(
         @wraps(func)
         def wrapper(*args, **kwargs):
             # If DEBUG is False, always recompute
-            if not DEBUG:
+            if not DEBUG and not persistent:
                 if verbose:
                     print(f"[Cache] DEBUG=False, computing {cache_name}")
                 return func(*args, **kwargs)

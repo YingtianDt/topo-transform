@@ -6,9 +6,10 @@ from .temporal import localize_temporal
 from .motion import localize_motion
 from .v6 import localize_v6
 from .psts import localize_psts
-from .pitcher import localize_pitcher
+from .pitcher import localize_pitcher, localize_pitcher_human
+from .robert import localize_robert
 
-FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal']
+FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal', 'robert']
 
 def validate_floc(
         model, 
@@ -29,11 +30,16 @@ def validate_floc(
     if viz_params is None:
         viz_params = {}
 
-    layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
-
     if viz_dir is not None and epoch is None:
         viz_dir = viz_dir / "eval"
         viz_dir.mkdir(parents=True, exist_ok=True)
+
+    if model.smoothing:
+        layer_positions = [lp.coordinates.cpu() for lp in model.smoothed_layer_positions]
+        layer_dims = [lp.dims for lp in model.smoothed_layer_positions]
+    else:
+        layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
+        layer_dims = [lp.dims for lp in model.layer_positions]
 
     t_vals_dicts = []
     for dataset_name in dataset_names:
@@ -93,6 +99,16 @@ def validate_floc(
                 frames_per_video=video_fps*3,
                 video_fps=video_fps,
             )
+        elif dataset_name == "robert":
+            print("For Robert dataset, using duration = 3 seconds")
+            t_vals_dict = localize_robert(
+                model,
+                transform,
+                batch_size=batch_size,
+                device=device,
+                frames_per_video=video_fps*3,
+                video_fps=video_fps,
+            )
         else:
             raise ValueError(f"Unknown dataset_name: {dataset_name}")
 
@@ -107,3 +123,18 @@ def validate_floc(
     if viz_dir is not None and plot_aggregate:
         suffix = f'_{epoch+1}' if epoch is not None else ''
         visualize_all_rois_v2(t_vals_dicts, layer_positions, viz_dir, prefix=f'rois_', suffix=suffix)
+
+    return t_vals_dicts
+
+
+def validate_floc_human(
+    dataset_names,
+):
+    t_vals_dicts = []
+    for dataset_name in dataset_names:
+        if dataset_name == "pitcher":
+            t_vals_dict = localize_pitcher_human()
+        else:
+            raise ValueError(f"Unknown dataset_name for human: {dataset_name}")
+        t_vals_dicts.append(t_vals_dict)
+    return t_vals_dicts

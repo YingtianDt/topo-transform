@@ -2,11 +2,12 @@ import os
 import numpy as np
 import torch
 from torch import nn
+from contextlib import contextmanager
 
 from config import CACHE_DIR
 from .positions import create_position_dicts, LayerPositions
 from .tissue import _get_tissue_configs_v3, _get_tissue_configs, VJEPA_LAYER_ASSIGNMENTS
-from .loss import SpatialCorrelationLoss
+from .loss import *
 from .smoothing import NeuronSmoothing
 from spacetorch.models.positions import LayerPositions
 
@@ -28,8 +29,13 @@ class TopoTransformedModel(nn.Module):
         self.name = name
         self.transform = transform
         self.set_extractor(extractor)
-        self.layer_positions = layer_positions
         self.output_layer_indices = range(self.num_layers)
+        self.layer_positions = layer_positions
+
+        # smoothing
+        self.smoothing = False
+        self.fwhm_mm = 2
+        self.resolution_mm = 1
 
         # store as buffers
         for i, layer_position in enumerate(self.layer_positions):
@@ -54,9 +60,8 @@ class TopoTransformedModel(nn.Module):
         self.extractor.set_layer_names(layer_names)
         self.set_extractor(self.extractor)
 
-    @staticmethod
-    def smooth(layer_features, layer_positions, fwhm_mm=2, resolution_mm=1):
-        smoothing = NeuronSmoothing(fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+    def smooth(self, layer_features, layer_positions):
+        smoothing = NeuronSmoothing(fwhm_mm=self.fwhm_mm, resolution_mm=self.resolution_mm)
         ret_features = []
         ret_positions = []
         for layer_feat, layer_pos in zip(layer_features, layer_positions):
@@ -73,14 +78,50 @@ class TopoTransformedModel(nn.Module):
             ret_positions.append(layer_pos_smoothed)
         return ret_features, ret_positions 
 
-    def forward(self, inputs, smoothing=False, do_transform=True):
+    @contextmanager
+    def smoothing_enabled(self, fwhm_mm=None, resolution_mm=None):
+        """Context manager to temporarily enable smoothing."""
+        original_smoothing = self.smoothing
+        old_fwhm = self.fwhm_mm
+        old_resolution = self.resolution_mm
+        try:
+            self.smoothing = True
+            if fwhm_mm is not None:
+                self.fwhm_mm = fwhm_mm
+            if resolution_mm is not None:
+                self.resolution_mm = resolution_mm
+
+            self.smoothed_layer_positions = []
+            for layer_position in self.layer_positions:
+                position_smoothed, grid_dims = NeuronSmoothing.get_grid_positions(layer_position.coordinates, resolution_mm=resolution_mm)
+                self.smoothed_layer_positions.append(
+                    LayerPositions(
+                        name=layer_position.name,
+                        dims=grid_dims,
+                        coordinates=position_smoothed,
+                        neighborhood_indices=None,  # to be computed later if needed
+                        neighborhood_width=layer_position.neighborhood_width,
+                    )
+                )
+
+                if hasattr(self, "single_sheet") and self.single_sheet:
+                    self.smoothed_layer_positions = self.smoothed_layer_positions[:1]
+
+            yield self
+        finally:
+            self.smoothing = original_smoothing
+            self.fwhm_mm = old_fwhm
+            self.resolution_mm = old_resolution
+            del self.smoothed_layer_positions
+
+    def forward(self, inputs, do_transform=True):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
         if do_transform:
             layer_features = self.transform(layer_features)
         layer_positions = [self.layer_positions[i] for i in self.output_layer_indices]
 
-        if smoothing:
+        if self.smoothing:
             layer_features, layer_positions = self.smooth(layer_features, layer_positions)
 
         return layer_features, layer_positions
@@ -166,8 +207,15 @@ class TopoTransformedVJEPA(TopoTransformedModel):
 
         super().__init__(name, model, extractor, layer_positions, transform, rebuild, seed)
 
-    def forward(self, inputs, smoothing=False, do_transform=True):
-        layer_features, layer_positions = super().forward(inputs, smoothing=False, do_transform=do_transform)
+    def forward(self, inputs, do_transform=True):
+        with torch.no_grad():
+            layer_features = self.extractor.extract_features(self.model, inputs)
+
+        if do_transform:
+            layer_features = self.transform(layer_features)
+
+        layer_positions = [self.layer_positions[i] for i in self.output_layer_indices]
+
         if self.single_sheet:
             # concatenate features along width
             concatenated_features = []
@@ -177,7 +225,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
             layer_features = [concatenated_features]
             layer_positions = layer_positions[:1]
 
-        if smoothing or (self.smoothing and not self.training):
+        if self.smoothing:
             layer_features, layer_positions = self.smooth(layer_features, layer_positions)
 
         return layer_features, layer_positions

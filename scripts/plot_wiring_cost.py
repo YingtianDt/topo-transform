@@ -11,6 +11,8 @@ from topo import TopoTransformedVJEPA
 from .get_validate_features import validate_features
 from config import CACHE_DIR, PLOTS_DIR
 
+from .common import *
+
 
 def plot_distance_similarity(
     features, 
@@ -138,7 +140,7 @@ def plot_distance_similarity(
 
 
 if __name__ == '__main__':
-    all_features, positions = validate_features('best_transformed_model_vjepa_14_18_22_single_lr1e-4_bs32.pt')
+    all_features, positions = validate_features(MODEL_CKPT)
     
     # Plot for first layer: in a single-sheet setting, this is the only "layer"
     layer_features = all_features[0]

@@ -4,12 +4,12 @@ from config import PLOTS_DIR
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-from .get_neural_alignment import neural_alignment
+from .get_spatial_alignment import spatial_alignment
 
 from .common import MODEL_CKPT
 
 
-def plot_neural_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
+def plot_spatial_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
     """
     Plot horizontal bar plot comparing pre- and post-transform neural alignment.
     
@@ -19,9 +19,6 @@ def plot_neural_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
         figsize: Figure size (width, height)
     """
     # Get the data
-    scores_pre, scores_post, mask, ceiling = neural_alignment(ckpt_name, num_splits=num_splits)
-
-    ceiling = ceiling[:, mask]
     
     # Compute mean scores across voxels for each split
     mean_pre = scores_pre.mean(axis=1)  # [num_splits]
@@ -129,53 +126,7 @@ if __name__ == "__main__":
     # Example usage
     ckpt_name = MODEL_CKPT
     num_splits = 1  # Adjust as needed
+    scores  = spatial_alignment(ckpt_name, num_splits=num_splits)
     
-
-    fig, ax, stats = plot_neural_alignment_comparison(ckpt_name, num_splits=num_splits)
+    fig, ax, stats = plot_spatial_alignment_comparison(ckpt_name, num_splits=num_splits)
     
-    # Print statistics
-    print("\n" + "="*50)
-    print("NEURAL ALIGNMENT COMPARISON RESULTS")
-    print("="*50)
-    print(f"Original (mean ± std):     {stats['pre']:.4f} ± {stats['mean_pre_splits'].std():.4f}")
-    print(f"Transformed (mean ± std):  {stats['post']:.4f} ± {stats['mean_post_splits'].std():.4f}")
-    print(f"Ceiling:                   {stats['ceiling']:.4f}")
-    print(f"Improvement:               {stats['improvement_pct']:+.2f}%")
-    
-    if stats['p_value'] is not None:
-        print("\n" + "-"*50)
-        print("PAIRED T-TEST RESULTS")
-        print("-"*50)
-        print(f"t-statistic:               {stats['t_stat']:.4f}")
-        print(f"p-value:                   {stats['p_value']:.6f}")
-        print(f"Cohen's d (effect size):   {stats['cohens_d']:.4f}")
-        
-        if stats['p_value'] < 0.001:
-            sig_level = "highly significant (p < 0.001) ***"
-        elif stats['p_value'] < 0.01:
-            sig_level = "very significant (p < 0.01) **"
-        elif stats['p_value'] < 0.05:
-            sig_level = "significant (p < 0.05) *"
-        else:
-            sig_level = "not significant (p >= 0.05) n.s."
-        
-        print(f"Significance:              {sig_level}")
-        
-        # Interpret effect size
-        if abs(stats['cohens_d']) < 0.2:
-            effect_interp = "negligible"
-        elif abs(stats['cohens_d']) < 0.5:
-            effect_interp = "small"
-        elif abs(stats['cohens_d']) < 0.8:
-            effect_interp = "medium"
-        else:
-            effect_interp = "large"
-        print(f"Effect size interpretation: {effect_interp}")
-    else:
-        print("\nNote: Need at least 2 splits for statistical testing")
-    
-    print("="*50 + "\n")
-    
-    # Save figure
-    plt.savefig(PLOTS_DIR / f'plot_neural_alignment.svg', dpi=300, bbox_inches='tight')
-    plt.show()

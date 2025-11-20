@@ -14,6 +14,8 @@ from pathlib import Path
 from config import CACHE_DIR, PLOTS_DIR
 from spacetorch.models.positions import LayerPositions
 
+from .config import CACHE_DIR
+
 
 POSITION_DIR = CACHE_DIR / "positions"
 
@@ -128,7 +130,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Visualize layer positions in 3D')
-    parser.add_argument('--model', type=str, default='vjepa_14_18_22_single',
+    parser.add_argument('--model', type=str, default=MODEL_CKPT,
                        help='Model configuration name')
     parser.add_argument('--layers', type=int, nargs='+', default=None,
                        help='Specific layer indices to visualize')

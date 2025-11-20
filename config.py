@@ -26,11 +26,11 @@ os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
 DEBUG = False
-RERUN = not DEBUG
+RERUN = False
 
 if DEBUG:
     print("*" * 100)
-    print(" " * 35 + "WARNING: DEBUG MODE IS ON.")
+    print(" " * 30 + f"WARNING: DEBUG MODE IS ON, RERUN {'ON' if RERUN else 'OFF'}")
     print("*" * 100)
 
 
