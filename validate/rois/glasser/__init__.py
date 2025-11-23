@@ -94,7 +94,6 @@ STREAMS = {
 }
 STREAMS = {k:[abbreviation_map[e] for e in v] for k,v in STREAMS.items()}
 
-
 class MAP:
     regions = glasser.cortical_divisions
     atlas = natlas.Atlas("Glasser")
@@ -114,6 +113,8 @@ class MAP:
         return np.isin(MAP.label_surface, region_labels)
 
 MAP.regions.update(STREAMS)
+for abbrv, name in abbreviation_map.items():
+    MAP.rev_label_name_map[abbrv.lower()] = MAP.rev_label_name_map[name.lower()]
 
 def get_region_voxels(region):
     region = MAP.regions[region] if not isinstance(region, list) and region in MAP.regions else region

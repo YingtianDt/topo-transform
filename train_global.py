@@ -200,10 +200,10 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 if __name__ == '__main__':
     # Config
     model_name = 'vjepa'
-    data_name = 'smthsmthv2'  # 'smthsmthv2', 'kinetics400', 'imagenet'
+    data_name = 'kinetics400'  # 'smthsmthv2', 'kinetics400', 'imagenet'
     layer_indices = [14, 18, 22] 
     batch_size = 32
-    lr = 1e-3
+    lr = 5e-5
     num_epochs = 5
     samples_per_batch = 8192 * 2
     exponentially_interpolate = False

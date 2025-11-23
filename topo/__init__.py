@@ -85,27 +85,33 @@ class TopoTransformedModel(nn.Module):
         old_fwhm = self.fwhm_mm
         old_resolution = self.resolution_mm
         try:
-            self.smoothing = True
-            if fwhm_mm is not None:
-                self.fwhm_mm = fwhm_mm
-            if resolution_mm is not None:
-                self.resolution_mm = resolution_mm
+            if resolution_mm == 0.0:
+                self.smoothing = False
+                self.smoothed_layer_positions = self.layer_positions
+                self.fwhm_mm = None
+                self.resolution_mm = None
+            else:
+                self.smoothing = True
+                if fwhm_mm is not None:
+                    self.fwhm_mm = fwhm_mm
+                if resolution_mm is not None:
+                    self.resolution_mm = resolution_mm
 
-            self.smoothed_layer_positions = []
-            for layer_position in self.layer_positions:
-                position_smoothed, grid_dims = NeuronSmoothing.get_grid_positions(layer_position.coordinates, resolution_mm=resolution_mm)
-                self.smoothed_layer_positions.append(
-                    LayerPositions(
-                        name=layer_position.name,
-                        dims=grid_dims,
-                        coordinates=position_smoothed,
-                        neighborhood_indices=None,  # to be computed later if needed
-                        neighborhood_width=layer_position.neighborhood_width,
+                self.smoothed_layer_positions = []
+                for layer_position in self.layer_positions:
+                    position_smoothed, grid_dims = NeuronSmoothing.get_grid_positions(layer_position.coordinates, resolution_mm=resolution_mm)
+                    self.smoothed_layer_positions.append(
+                        LayerPositions(
+                            name=layer_position.name,
+                            dims=grid_dims,
+                            coordinates=position_smoothed,
+                            neighborhood_indices=None,  # to be computed later if needed
+                            neighborhood_width=layer_position.neighborhood_width,
+                        )
                     )
-                )
 
-                if hasattr(self, "single_sheet") and self.single_sheet:
-                    self.smoothed_layer_positions = self.smoothed_layer_positions[:1]
+                    if hasattr(self, "single_sheet") and self.single_sheet:
+                        self.smoothed_layer_positions = self.smoothed_layer_positions[:1]
 
             yield self
         finally:

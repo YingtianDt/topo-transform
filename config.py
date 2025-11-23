@@ -25,8 +25,8 @@ os.environ['HF_HOME'] = str(CACHE_DIR / 'hf')
 os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
-DEBUG = False
-RERUN = False
+DEBUG = True
+RERUN = True
 
 if DEBUG:
     print("*" * 100)

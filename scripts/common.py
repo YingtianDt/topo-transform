@@ -1,1 +1,1 @@
-MODEL_CKPT = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_smthsmthv2_lr1e-4_bs32.pt"
+MODEL_CKPT = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr5e-5_bs32.pt"
