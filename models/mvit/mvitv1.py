@@ -1,4 +1,4 @@
-from typing import override, Dict, List
+from typing import Dict, List
 
 from torch import nn
 from torchvision.models.video import MViT_V1_B_Weights

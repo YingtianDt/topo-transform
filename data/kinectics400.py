@@ -13,7 +13,7 @@ from .utils.io import Video
 class Kinetics400:
     def __init__(
         self,
-        root: str = '/mnt/scratch/fkolly/datasets/kinetics-dataset/k400',
+        root: str = '/data2/ynshah/Kinetics400/k400',
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
@@ -83,7 +83,7 @@ class _Kinetics400(Dataset):
         self.dataset_name = 'kinetics400'
 
         split = "train" if train else "val"
-        self.root = os.path.join(root, 'videos', split)
+        self.root = os.path.join(root, split)
         self.transforms = transforms
         self.fps = fps
         self.duration = duration
@@ -91,7 +91,9 @@ class _Kinetics400(Dataset):
         self.shuffle = shuffle
         self.static = static
 
-        self.video_paths = glob.glob(os.path.join(self.root, "*/*.mp4"))
+        print(self.root)
+
+        self.video_paths = glob.glob(os.path.join(self.root, "*.mp4"))
 
         # randomly subsample the dataset if subsample_factor < 1.0
         if subsample_factor < 1.0:

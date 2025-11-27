@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import override
 
 import torch.nn as nn
 
@@ -9,7 +8,7 @@ from .src.utils.pretrained import load_checkpoint
 from .src.vision_transformer import vit_large, vit_huge
 from .src.utils.remap import VJEPA_REVERSE_MAPPING
 
-PRETRAINED_DIR = os.environ.get('PRETRAINED_DIR', "/mnt/scratch/fkolly/brainmo/pretrained")
+PRETRAINED_DIR = os.environ.get('PRETRAINED_DIR', "/data2/ynshah/tdann-transform/cache/checkpoints")
 
 class VJEPA(nn.Module):
     def __init__(self, pretrain_size='large') -> None:
@@ -17,8 +16,8 @@ class VJEPA(nn.Module):
         
         if pretrain_size == 'large':
             vit = vit_large
-            backbone_path = f'{PRETRAINED_DIR}/vitl16_state.pt'
-            head_path = f'{PRETRAINED_DIR}/vitl-classifier_state.pt'
+            backbone_path = f'{PRETRAINED_DIR}/vitl16.pth.tar'
+            head_path = f'{PRETRAINED_DIR}/k400-probe.pth.tar'
             input_dim = 1024
             head_dim = 400
         elif pretrain_size == 'huge':
@@ -34,7 +33,7 @@ class VJEPA(nn.Module):
         self.backbone = vit(num_frames=16) # Needs to be 16 to load_state_dict
         self.head = AttentiveClassifier(embed_dim=input_dim, num_heads=16, num_classes=head_dim)
         self.backbone = load_checkpoint(backbone_path, self.backbone)
-        self.head = load_checkpoint(head_path, self.head)
+        self.head = load_checkpoint(head_path, self.head, is_head=True)
         self.model = nn.Sequential(self.backbone, self.head)
         self.head_without_classif = self.head.get_submodule('pooler')
 
