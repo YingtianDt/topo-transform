@@ -220,8 +220,6 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         if do_transform:
             layer_features = self.transform(layer_features)
 
-        layer_positions = [self.layer_positions[i] for i in self.output_layer_indices]
-
         if self.single_sheet:
             # concatenate features along width
             concatenated_features = []
@@ -229,7 +227,9 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                 concatenated_features.append(feat)  # list of (B, C, H, W)
             concatenated_features = torch.cat(concatenated_features, dim=-1)
             layer_features = [concatenated_features]
-            layer_positions = layer_positions[:1]
+            layer_positions = self.layer_positions[:1]
+        else:
+            layer_features = [self.layer_features[i] for i in self.output_layer_indices]
 
         if self.smoothing:
             layer_features, layer_positions = self.smooth(layer_features, layer_positions)

@@ -315,10 +315,11 @@ def _t_test(model, transform, datasets, contrasts, batch_size=32, device='cuda',
 def t_test(model, transform, datasets, contrasts, related=False, **kwargs):
     """Wrapper function for t_test with caching."""
 
-    contrast_hash = hashlib.md5(str(contrasts).encode()).hexdigest()
+    contrast_hash = hashlib.md5(str(contrasts).encode()).hexdigest()[:8]
+    datasets_hash = hashlib.md5(str(sorted(datasets.keys())).encode()).hexdigest()[:8]
     cache_key = (
         f'ttest{"_rel" if related else ""}_{model.name}_'
-        f'{"_".join(sorted(datasets.keys()))}_'
+        f'{datasets_hash}_'
         f'{contrast_hash}'
     )
 

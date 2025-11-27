@@ -60,7 +60,7 @@ def KANWISHER_dynamic_static_category_dataset(data_dir=KANWISHER, transform=None
     return ret
 
 def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
-                     batch_size=32, device='cuda', num_samples=256, seed=42, downsampler=None):
+                     batch_size=32, device='cuda', num_samples=256, seed=42, downsampler=None, ret_pvals=False):
     
     categories = [
         "Faces_moving", "Faces_static",
@@ -73,7 +73,7 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
     datasets = KANWISHER_dynamic_static_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
     datasets = {cat: datasets[cat] for cat in categories}
     n_categories = len(categories)
-    t_vals_dict = t_test(
+    t_vals_dict, p_vals_dict = t_test(
         model, transform, 
         datasets=datasets, 
         contrasts=[
@@ -92,21 +92,19 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
             (0, 0, 0, 0, 0, 0, 1, 0),    # Objects moving overall
             (0, 0, 0, 0, 0, 0, 0, 1),    # Objects static overall
             # localizers
-            (1, 0, -1, 0, -1, 0, -1, 0),  # dynamic faces vs dynamic others
-            (0, 1, 0, -1, 0, -1, 0, -1),  # static faces vs static others
-            (-1, 0, 1, 0, -1, 0, -1, 0),  # dynamic bodies vs dynamic others
-            (0, -1, 0, 1, 0, -1, 0, -1),  # static bodies vs static others
-            (-1, 0, -1, 0, 1, 0, -1, 0),  # dynamic scenes vs dynamic others
-            (0, -1, 0, -1, 0, 1, 0, -1),  # static scenes vs static others
-            (-1, 0, -1, 0, -1, 0, 1, 0),  # dynamic objects vs dynamic others
-            (0, -1, 0, -1, 0, -1, 0, 1),  # static objects vs static others
+            (1, 0, 0, 0, 0, 0, -1, 0),  # dynamic faces vs dynamic objects
+            (0, 1, 0, 0, 0, 0, 0, -1),  # static faces vs static objects
+            (0, 0, 1, 0, 0, 0, -1, 0),  # dynamic bodies vs dynamic objects
+            (0, 0, 0, 1, 0, 0, 0, -1),  # static bodies vs static objects
+            (0, 0, 0, 0, 1, 0, -1, 0),  # dynamic scenes vs dynamic objects
+            (0, 0, 0, 0, 0, 1, 0, -1),  # static scenes vs static objects
         ],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
-    )[0]
+    )
 
     # Use contrast indices (0-3) to access results
-    ret = {
+    t_vals_ret = {
         "Faces_moving_vs_static": t_vals_dict["Faces_moving_vs_Faces_static"],
         "Bodies_moving_vs_static": t_vals_dict["Bodies_moving_vs_Bodies_static"],
         "Scenes_moving_vs_static": t_vals_dict["Scenes_moving_vs_Scenes_static"],
@@ -130,10 +128,37 @@ def localize_pitcher(model, transform, frames_per_video=36, video_fps=12,
                     continue
                 if category in vs_after:
                     continue
-                ret[f"{vs_before}_localizer"] = t_vals_dict[k]
+                t_vals_ret[f"{vs_before}_localizer"] = t_vals_dict[k]
 
-    return ret
+    p_vals_ret = {
+        "Faces_moving_vs_static": p_vals_dict["Faces_moving_vs_Faces_static"],
+        "Bodies_moving_vs_static": p_vals_dict["Bodies_moving_vs_Bodies_static"],
+        "Scenes_moving_vs_static": p_vals_dict["Scenes_moving_vs_Scenes_static"],
+        "Objects_moving_vs_static": p_vals_dict["Objects_moving_vs_Objects_static"],
+        "Faces_moving": p_vals_dict["Faces_moving_vs_baseline"],
+        "Faces_static": p_vals_dict["Faces_static_vs_baseline"],
+        "Bodies_moving": p_vals_dict["Bodies_moving_vs_baseline"],
+        "Bodies_static": p_vals_dict["Bodies_static_vs_baseline"],
+        "Scenes_moving": p_vals_dict["Scenes_moving_vs_baseline"],
+        "Scenes_static": p_vals_dict["Scenes_static_vs_baseline"],
+        "Objects_moving": p_vals_dict["Objects_moving_vs_baseline"],
+        "Objects_static": p_vals_dict["Objects_static_vs_baseline"],
+    }
 
+    for category in categories:
+        for k in p_vals_dict.keys():
+            if k.startswith(category):
+                vs_after = k.split('_vs_')[1]
+                vs_before = k.split('_vs_')[0]
+                if 'baseline' in vs_after:
+                    continue
+                if category in vs_after:
+                    continue
+                p_vals_ret[f"{vs_before}_localizer"] = p_vals_dict[k]
+
+    if ret_pvals:
+        return t_vals_ret, p_vals_ret
+    return t_vals_ret
 
 def localize_pitcher_human():
     categories = ["Faces", "Bodies", "Scenes", "Objects"]

@@ -51,8 +51,7 @@ def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, t_per
 
     decoder = make_decoder(test_type='regress', device=device)
 
-    scores = defaultdict(list)
-
+    all_scores = []
     with model.smoothing_enabled(fwhm_mm=fwhm_mm, resolution_mm=resolution_mm):
         for split in range(num_splits):
             print(f"=== Split {split+1}/{num_splits} ===")
@@ -82,6 +81,11 @@ def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, t_per
 
             # compute RSA between model and neural activations
 
+            train_model_acts = []
+            train_neural_acts = []
+            test_model_acts = []
+            test_neural_acts = []
+
             for i, roi, mask_model, mask_human in zip(range(len(rois)), rois, masks_model, masks_human):
                 print(f"Processing ROI: {roi}")
 
@@ -93,28 +97,39 @@ def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, t_per
                 train_neural_acts_roi = train_neural_activities[:, 0, mask_human]  # shape: (n_samples, n_voxels)
                 test_neural_acts_roi = test_neural_activities[:, 0, mask_human]  # shape: (n_samples, n_voxels)
 
-                # remove nans
-                nans = np.isnan(train_model_acts_roi).any(axis=0)
-                train_model_acts_roi = train_model_acts_roi[:, ~nans]
-                test_model_acts_roi = test_model_acts_roi[:, ~nans]
+                train_model_acts.append([train_model_acts_roi])
+                train_neural_acts.append(train_neural_acts_roi)
+                test_model_acts.append([test_model_acts_roi])
+                test_neural_acts.append(test_neural_acts_roi)
                 
-                decoder = make_decoder('regress', device)
 
-                decode_scores = decode(
-                    [[train_model_acts_roi]],
-                    [train_neural_acts_roi],
-                    [[test_model_acts_roi]],
-                    [test_neural_acts_roi],
-                    decoder
-                )
+            decoder = make_decoder('regress', device)
 
-                mean_score = decode_scores.mean()
-                print(f"Decoding score for ROI {roi}: {mean_score:.4f}")
+            scores = np.zeros((len(rois), len(rois)))
+            for i, roi_a in enumerate(rois):
+                for j, roi_b in enumerate(rois):
+                    print(f"Decoding ROI: model {roi_a} to human {roi_b}")
 
-                scores[roi].append(mean_score)
-        
-    scores = {roi: np.array(vals) for roi, vals in scores.items()}  # Convert lists to arrays
-    return scores
+                    train_model_roi = [train_model_acts[i]]
+                    train_neural_roi = [train_neural_acts[j]]
+                    test_model_roi = [test_model_acts[i]]
+                    test_neural_roi = [test_neural_acts[j]]
+
+                    decode_scores = decode(
+                        train_model_roi,
+                        train_neural_roi,
+                        test_model_roi,
+                        test_neural_roi,
+                        decoder
+                    )
+
+                    scores[i, j] = decode_scores.mean().item()  # average over all voxels
+
+            all_scores.append(scores)
+
+    all_scores = np.array(all_scores)  # shape: (num_splits, num_rois, num_rois)
+
+    return all_scores
 
 def localizer_decode(ckpt_name, rois, num_splits=1, fwhm_mm=2.0, resolution_mm=1.0):
     import hashlib
@@ -128,9 +143,10 @@ if __name__ == "__main__":
 
     rois = [
         'face',
+        'place',
+        'body',
         'v6',
         'psts',
-        'mt',
     ]
 
     scores  = localizer_decode(ckpt_name, rois, num_splits=num_splits)

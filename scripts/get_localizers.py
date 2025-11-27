@@ -2,9 +2,10 @@ from utils import cached
 from models import vit_transform
 from validate.floc import *
 from validate import load_transformed_model
+from validate.fdr import false_discovery_control
 
 
-FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal', 'robert']
+FLOC_DATASETS = ['kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
 
 def _localizers(
         checkpoint_name, 
@@ -32,9 +33,10 @@ def _localizers(
             layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
 
         t_vals_dicts = []
+        p_vals_dicts = []
         for dataset_name in dataset_names:
             if dataset_name in ["vpnl", "kanwisher"]:
-                t_vals_dict = localize_categories(
+                t_vals_dict, p_vals_dict = localize_categories(
                     model, 
                     transform, 
                     dataset_name=dataset_name,
@@ -42,69 +44,77 @@ def _localizers(
                     device=device,
                     frames_per_video=frames_per_video,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "motion":
-                t_vals_dict = localize_motion(
+                t_vals_dict, p_vals_dict = localize_motion(
                     model, 
                     transform, 
                     batch_size=batch_size, 
                     device=device,
                     frames_per_video=frames_per_video,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "pitzalis":
-                t_vals_dict = localize_v6(
+                t_vals_dict, p_vals_dict = localize_v6(
                     model,
                     transform,
                     batch_size=batch_size,
                     device=device,
                     frames_per_video=frames_per_video,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "biomotion":
-                t_vals_dict = localize_psts(
+                t_vals_dict, p_vals_dict = localize_psts(
                     model,
                     transform,
                     batch_size=batch_size,
                     device=device,
                     frames_per_video=frames_per_video,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "temporal":
-                t_vals_dict = localize_temporal(
+                t_vals_dict, p_vals_dict = localize_temporal(
                     model,
                     transform,
                     batch_size=batch_size,
                     device=device,
                     frames_per_video=frames_per_video,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "pitcher":
                 print("For Pitcher dataset, using duration = 3 seconds")
-                t_vals_dict = localize_pitcher(
+                t_vals_dict, p_vals_dict = localize_pitcher(
                     model,
                     transform,
                     batch_size=batch_size,
                     device=device,
                     frames_per_video=video_fps*3,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             elif dataset_name == "robert":
                 print("For Robert dataset, using duration = 3 seconds")
-                t_vals_dict = localize_robert(
+                t_vals_dict, p_vals_dict = localize_robert(
                     model,
                     transform,
                     batch_size=batch_size,
                     device=device,
                     frames_per_video=video_fps*3,
                     video_fps=video_fps,
+                    ret_pvals=True,
                 )
             else:
                 raise ValueError(f"Unknown dataset_name: {dataset_name}")
 
             t_vals_dicts.append(t_vals_dict)
+            p_vals_dicts.append(p_vals_dict)
 
-        return t_vals_dicts, layer_positions
+        return t_vals_dicts, p_vals_dicts, layer_positions
 
 
 def localizers(
@@ -120,9 +130,20 @@ def localizers(
     import hashlib
     dataset_str = '_'.join(sorted(dataset_names))
     hash_suffix = hashlib.md5(dataset_str.encode()).hexdigest()[:8]
-    t_vals_dicts, layer_positions = cached(f"localizers_{checkpoint_name}_{hash_suffix}_{fwhm_mm}_{resolution_mm}")(
+    t_vals_dicts, p_vals_dicts, layer_positions = cached(f"localizers_{checkpoint_name}_{hash_suffix}_{fwhm_mm}_{resolution_mm}")(
         _localizers
     )(checkpoint_name, dataset_names, device=device, frames_per_video=frames_per_video, video_fps=video_fps, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+
+    # fdr
+    tmp = []    
+    for p_vals_dict in p_vals_dicts:
+        fdr_p_vals_dict = {}
+        for roi_name, p_vals in p_vals_dict.items():
+            shapes = [p_val.shape for p_val in p_vals]
+            fdr_p_vals = [false_discovery_control(p_val) for p_val in p_vals]
+            fdr_p_vals_dict[roi_name] = [fdr_p_val.reshape(shape) for fdr_p_val, shape in zip(fdr_p_vals, shapes)]
+        tmp.append(fdr_p_vals_dict)
+    p_vals_dicts = tmp
 
     if ret_merged:
         merged_t_vals_dict = {}
@@ -130,60 +151,67 @@ def localizers(
             merged_t_vals_dict.update(t_vals_dict)
         t_vals_dicts = merged_t_vals_dict
 
-    return t_vals_dicts, layer_positions
+        merged_p_vals_dict = {}
+        for p_vals_dict in p_vals_dicts:
+            merged_p_vals_dict.update(p_vals_dict)
+        p_vals_dicts = merged_p_vals_dict
+
+    return t_vals_dicts, p_vals_dicts, layer_positions
 
 
-def get_localizer_model(rois, ckpt_name, t_perc=100, t_thres=None, fwhm_mm=2.0, resolution_mm=1.0):
-    t_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+def get_localizer_model(rois, ckpt_name, p_thres=0.01, fwhm_mm=2.0, resolution_mm=1.0):
+    t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
-    # merge t_vals_dicts
-    t_val_dict = {}
-    for t_vals in t_vals_dicts:
-        t_val_dict.update(t_vals)
+    # merge p_vals_dicts
+    p_val_dict = {}
+    for p_vals in p_vals_dicts:
+        p_val_dict.update(p_vals)
 
-    def _tval_filter(t_val):
-        if t_perc < 100:
-            threshold = np.percentile(t_val.flatten(), 100-t_perc)
-            mask = t_val >= threshold
-
-        if t_thres is not None:
-            mask = mask & (t_val >= t_thres) 
+    def _pval_filter(p_val):
+        mask = p_val < p_thres
         return mask
 
     ret = []
     for roi in rois:
         if roi == "face":
-            t_vals = t_val_dict["Faces_moving"]
+            p_vals = p_val_dict["Faces_localizer"]
         elif roi == "place":
-            t_vals = t_val_dict["Scenes_moving"]
+            p_vals = p_val_dict["Scenes_localizer"]
         elif roi == "body":
-            t_vals = t_val_dict["Bodies_moving"]
+            p_vals = p_val_dict["Bodies_localizer"]
         elif roi == "object":
-            t_vals = t_val_dict["Objects_moving"]
+            p_vals = p_val_dict["Objects_localizer"]
         elif roi == "v6":
-            t_vals = t_val_dict["V6"]
+            p_vals = p_val_dict["V6"]
         elif roi == "psts":
-            t_vals = t_val_dict["pSTS"]
+            p_vals = p_val_dict["pSTS"]
         elif roi == "mt":
-            t_vals = t_val_dict["MT-Huk"]
+            p_vals = p_val_dict["MT-Huk"]
         else:
             raise ValueError(f"Unknown roi: {roi}")
-        masks = [_tval_filter(t_val) for t_val in t_vals]  # layers
+        masks = [_pval_filter(p_val) for p_val in p_vals]  # layers
         ret.append(masks)
     return ret
 
 def get_localizer_human(rois):
-    from validate.rois.glasser import get_region_voxels
+    from validate.rois import glasser
+    from validate.rois import visf
     ret = []
     for roi in rois:
         if roi == "face":
-            mask = get_region_voxels(["FFC"])
+            mask = visf.get_region_voxels("faces")
+        elif roi == "place":
+            mask = visf.get_region_voxels("places")
+        elif roi == "body":
+            mask = visf.get_region_voxels("bodies")
+        elif roi == "character":
+            mask = visf.get_region_voxels("characters")
         elif roi == "v6":
-            mask = get_region_voxels(["V6"])
+            mask = glasser.get_region_voxels(["V6"])
         elif roi == "psts":
-            mask = get_region_voxels(["STSdp", "STSvp"])
+            mask = glasser.get_region_voxels(["TPOJ2"])
         elif roi == "mt":
-            mask = get_region_voxels(["MT"])
+            mask = visf.get_region_voxels("hMT")
         else:
             raise ValueError(f"Unknown roi: {roi}")
         ret.append(mask)

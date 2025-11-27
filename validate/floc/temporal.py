@@ -38,7 +38,7 @@ class OrderingDataset(CategoryDataset):
 
 
 def localize_temporal(model, transform, frames_per_video=24, video_fps=12,
-                      batch_size=32, device='cuda', num_samples=256, seed=42):
+                      batch_size=32, device='cuda', num_samples=256, seed=42, ret_pvals=False):
     
     dataset = Kinetics400()
 
@@ -68,7 +68,7 @@ def localize_temporal(model, transform, frames_per_video=24, video_fps=12,
         wrapped_dataset = OrderingDataset(dataset, transform, ordering=ordering, seed=seed)
         datasets[ordering] = wrapped_dataset
     
-    t_vals_dict = t_test(
+    t_vals_dict, p_vals_dict = t_test(
         model, 
         transform, 
         datasets, 
@@ -79,12 +79,20 @@ def localize_temporal(model, transform, frames_per_video=24, video_fps=12,
         frames_per_video=frames_per_video, 
         video_fps=video_fps,
         related=True,
-    )[0]
+    )
 
-    ret = {
+    t_vals_ret = {
         "motion_vs_static_v2": t_vals_dict["normal_vs_static"],
         "motion_vs_static_v3": t_vals_dict["shuffled_vs_static"],
         "high_lvl_motion": t_vals_dict["normal_vs_shuffled"],
     }
+    p_vals_ret = {
+        "motion_vs_static_v2": p_vals_dict["normal_vs_static"],
+        "motion_vs_static_v3": p_vals_dict["shuffled_vs_static"],
+        "high_lvl_motion": p_vals_dict["normal_vs_shuffled"],
+    }
 
-    return ret
+    if ret_pvals:
+        return t_vals_ret, p_vals_ret
+
+    return t_vals_ret

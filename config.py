@@ -26,7 +26,7 @@ os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
 DEBUG = True
-RERUN = True
+RERUN = False
 
 if DEBUG:
     print("*" * 100)

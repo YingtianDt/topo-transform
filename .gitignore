@@ -1,5 +1,6 @@
 cache/
 wandb/
+*.png
 
 # Python
 __pycache__/
@@ -53,8 +54,6 @@ ENV/
 *.hdf5
 *.pkl
 *.pickle
-*.npy
-*.npz
 
 # Model checkpoints
 *.pth

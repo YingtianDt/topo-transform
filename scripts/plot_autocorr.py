@@ -199,7 +199,7 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
                            s=1.5, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none')
     
     # Mark selected units
-    unit_colors = ['blue', 'cyan', 'lime']
+    unit_colors = ['red', 'red', 'red']
     unit_labels = ['Unit 1 (cluster)', 'Unit 2 (cluster)', 'Unit 3 (distant)']
     for i, (idx, color, label) in enumerate(zip(selected_indices, unit_colors, unit_labels)):
         ax_spatial.scatter(pos[idx, 0], pos[idx, 1], c=color, s=200,

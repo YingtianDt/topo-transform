@@ -31,7 +31,7 @@ def motion_index(model, transform, dataset_motion, dataset_static,
             file_path, label, _ = dataset[idx]
             datasets[category].append((file_path, label))
 
-    t_vals_dict = t_test(
+    t_vals_dict, p_vals_dict = t_test(
         model, 
         transform, 
         datasets, 
@@ -41,13 +41,13 @@ def motion_index(model, transform, dataset_motion, dataset_static,
         downsampler=downsampler,
         frames_per_video=frames_per_video, 
         video_fps=video_fps
-    )[0]
+    )
 
-    return t_vals_dict
+    return t_vals_dict, p_vals_dict
 
 
 def localize_motion(model, transform, frames_per_video=24, video_fps=12,
-                    batch_size=32, device='cuda', num_samples=256, seed=42):
+                    batch_size=32, device='cuda', num_samples=256, seed=42, ret_pvals=False):
 
     motion_dataset = Kinetics400()
     static_dataset = ImageNetVid()
@@ -85,4 +85,6 @@ def localize_motion(model, transform, frames_per_video=24, video_fps=12,
         downsampler=None,  # Fixed: added missing parameter
     )
 
+    if ret_pvals:
+        return t_vals_dict, p_vals_dict
     return t_vals_dict
