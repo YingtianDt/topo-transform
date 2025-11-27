@@ -28,7 +28,7 @@ def Robert_category_dataset(data_dir=ROBERT, transform=None, frames_per_video=36
 
 def localize_robert(model, transform, 
                     batch_size=32, device='cuda', downsampler=None,
-                    video_fps=12, frames_per_video=36):
+                    video_fps=12, frames_per_video=36, ret_pvals=False):
 
     categories = ["dynamic", "static"]
 
@@ -36,16 +36,18 @@ def localize_robert(model, transform,
     datasets = Robert_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
     datasets = {cat: datasets[cat] for cat in categories}
     n_categories = len(categories)
-    t_vals_dict = t_test(
+    t_vals_dict, p_vals_dict = t_test(
         model, transform, 
         datasets=datasets, contrasts=[(1, -1)],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
-    )[0]
+    )
 
-    ret = {"robert": t_vals_dict["dynamic_vs_static"]}
+    t_vals_ret = {"robert": t_vals_dict["dynamic_vs_static"]}
+    p_vals_ret = {"robert": p_vals_dict["dynamic_vs_static"]}
 
-    return ret
-    
+    if ret_pvals:
+        return t_vals_ret, p_vals_ret
+    return t_vals_ret
 
     

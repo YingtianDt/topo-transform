@@ -45,36 +45,67 @@ def KANWISHER_category_dataset(data_dir=KANWISHER, transform=None, frames_per_vi
     """Create a category dataset for the Kanwisher dataset."""
     datasets = defaultdict(list)
     for category in os.listdir(data_dir):
-        if category == "Scrambled15G": # skip scrambled images
-            continue
         category_dir = os.path.join(data_dir, category)
         if os.path.isdir(category_dir):
             for fname in os.listdir(category_dir):
                 if fname.endswith(('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')):
-                    datasets[category].append((os.path.join(category_dir, fname), category))
+                    if category == "Scrambled15G":
+                        datasets["Scrambled"].append((os.path.join(category_dir, fname), category))
+                    else:
+                        datasets[category].append((os.path.join(category_dir, fname), category))
     return datasets
 
 
 def functional_localization_one_vs_rest(model, transform, datasets, 
                                         batch_size=32, device='cuda', downsampler=None,
-                                        video_fps=12, frames_per_video=24):
+                                        video_fps=12, frames_per_video=24, kanwisher=False):
 
     # Group files by category
     n_categories = len(datasets)
-    t_vals_dict = t_test(
+    if kanwisher:
+        categories = ["Faces", "Bodies", "Scenes", "Objects", "Scrambled"]
+        datasets = {cat: datasets[cat] for cat in categories}
+        contrasts = [
+            (1, 0, 0, -1, 0),  # Faces vs Objects
+            (0, 1, 0, -1, 0),  # Bodies vs Objects
+            (0, 0, 1, -1, 0),  # Scenes vs Objects
+            (0, 0, 0, 1, -1),  # Objects vs Scrambled
+        ]
+
+    else:
+        contrasts = [[1 if i == j else -1 for i in range(n_categories)] for j in range(n_categories)]
+
+    t_vals_dict, p_vals_dict = t_test(
         model, transform, datasets=datasets,
-        contrasts=[[1 if i == j else -1 for i in range(n_categories)] for j in range(n_categories)],
+        contrasts=contrasts,
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
-    )[0]
+    )
 
-    ret = {cat.split("_vs_")[0]: t_vals for cat, t_vals in t_vals_dict.items()}
+    # lahner 2024
+    if kanwisher:
+        t_val_ret = {}
+        t_val_ret["Faces_localizer"] = t_vals_dict["Faces_vs_Objects"]
+        t_val_ret["Bodies_localizer"] = t_vals_dict["Bodies_vs_Objects"]
+        t_val_ret["Scenes_localizer"] = t_vals_dict["Scenes_vs_Objects"]
+        t_val_ret["Objects_localizer"] = t_vals_dict["Objects_vs_Scrambled"]
+    else:
+        t_val_ret = {cat.split("_vs_")[0]: t_vals for cat, t_vals in t_vals_dict.items()}
 
-    return ret
+    if kanwisher:
+        p_vals_ret = {}
+        p_vals_ret["Faces_localizer"] = p_vals_dict["Faces_vs_Objects"]
+        p_vals_ret["Bodies_localizer"] = p_vals_dict["Bodies_vs_Objects"]
+        p_vals_ret["Scenes_localizer"] = p_vals_dict["Scenes_vs_Objects"]
+        p_vals_ret["Objects_localizer"] = p_vals_dict["Objects_vs_Scrambled"]
+    else:
+        p_vals_ret = {cat.split("_vs_")[0]: p_vals for cat, p_vals in p_vals_dict.items()}
+
+    return t_val_ret, p_vals_ret
 
 
 def localize_categories(model, transform, dataset_name, frames_per_video=24, video_fps=12, 
-                        batch_size=32, device='cuda', downsampler=None):
+                        batch_size=32, device='cuda', downsampler=None, ret_pvals=False):
     if dataset_name == "vpnl":
         datasets = VPNL_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
     elif dataset_name == "kanwisher":
@@ -82,9 +113,11 @@ def localize_categories(model, transform, dataset_name, frames_per_video=24, vid
     else:
         raise ValueError(f"Unknown dataset_name: {dataset_name}")
 
-    t_vals_dict = functional_localization_one_vs_rest(
+    t_vals_dict, p_vals_dict = functional_localization_one_vs_rest(
         model, transform=transform, datasets=datasets,
         batch_size=batch_size, device=device, downsampler=downsampler,
-        video_fps=video_fps, frames_per_video=frames_per_video
+        video_fps=video_fps, frames_per_video=frames_per_video, kanwisher=(dataset_name=="kanwisher")
     )
+    if ret_pvals:
+        return t_vals_dict, p_vals_dict
     return t_vals_dict

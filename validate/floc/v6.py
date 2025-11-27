@@ -60,7 +60,7 @@ def Pitzalis_category_dataset(data_dir=FLOW, transform=None, frames_per_video=24
 
 def localize_v6(model, transform, 
                 batch_size=32, device='cuda', downsampler=None,
-                video_fps=12, frames_per_video=24):
+                video_fps=12, frames_per_video=24, ret_pvals=False):
 
     categories = ["coherent", "scrambled", "static"]
 
@@ -68,19 +68,25 @@ def localize_v6(model, transform,
     datasets = Pitzalis_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
     datasets = {cat: datasets[cat] for cat in categories}
     n_categories = len(categories)
-    t_vals_dict = t_test(
+    t_vals_dict, p_vals_dict = t_test(
         model, transform, 
         datasets=datasets, contrasts=[(1, -1, 0), (1, 0, -1)],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
-    )[0]
+    )
 
-    ret = {
+    t_vals_ret = {
         "V6": t_vals_dict["coherent_vs_scrambled"],
         "MT-Huk": t_vals_dict["coherent_vs_static"],
     }
 
-    return ret
-    
+    p_vals_ret = {
+        "V6": p_vals_dict["coherent_vs_scrambled"],
+        "MT-Huk": p_vals_dict["coherent_vs_static"],
+    }
+
+    if ret_pvals:
+        return t_vals_ret, p_vals_ret
+    return t_vals_ret
 
     

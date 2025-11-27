@@ -171,7 +171,7 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
     
     # Create horizontal bars for model data (mean) - no edge color
     bars = ax1.barh(plot_positions, plot_model_means, width, 
-                    color='#7C8DB0', alpha=0.7, edgecolor='none',
+                    color=MODEL_C, alpha=0.7, edgecolor='none',
                     label='Model (mean)')
     
     # Add error bars for confidence intervals
@@ -194,10 +194,10 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
     # Add vertical lines for human data
     for pos, human_val in zip(plot_positions, plot_human_vals):
         ax1.plot([human_val, human_val], [pos - width/2, pos + width/2],
-                color='#2E7D32', linestyle='--', linewidth=2.5, alpha=0.8)
+                color=HUMAN_C, linestyle='--', linewidth=2.5, alpha=0.8)
     
     # Add a single legend entry for human data
-    human_line = Line2D([0], [0], color='#2E7D32', linestyle='-', linewidth=2.5, 
+    human_line = Line2D([0], [0], color=HUMAN_C, linestyle='-', linewidth=2.5, 
                         label='Human', alpha=0.8)
     
     # Create custom legend entry for scatter points

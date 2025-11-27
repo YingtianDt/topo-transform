@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from models import VJEPA, UniFormer, MViTV1
-from topo import TopoTransformedVJEPA, SpatialCorrelationLoss, GlobalSpatialCorrelationLoss
+from topo import TopoTransformedVJEPA, SpatialCorrelationLoss
 from data import SmthSmthV2, Kinetics400, ImageNetVid
 from validate import load_transformed_model, validate_autocorr, validate_floc
 
@@ -32,10 +32,11 @@ vit_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-def get_config_id(model_name, data_name, lr, batch_size=32, prefix=""):
+def get_config_id(model_name, data_name, lr, batch_size=32):
     """Generate unique config identifier"""
     lr_str = f"lr{lr}".replace('.', 'p') if lr >= 0.001 else f"lr{lr:.0e}".replace('e-0', 'e-').replace('e+0', 'e')
-    return f"{prefix}{model_name}_{data_name}_{lr_str}_bs{batch_size}"
+    return f"{model_name}_{data_name}_{lr_str}_bs{batch_size}"
+
 
 def train_model(model, train_loader, val_loader, criterion, config_id, storage, figure_dir,
                 device='cuda', num_epochs=50, lr=1e-3, resume=True, use_wandb=False, 
@@ -86,45 +87,45 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
     
     # Training loop
     for epoch in range(start_epoch, num_epochs):
-        # Train
-        model.train()
-        train_loss = 0.0
-        pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}')
-        for batch_idx, batch in enumerate(pbar):
-            videos = batch[0].to(device, non_blocking=True)
-            optimizer.zero_grad()
-            loss = criterion(*model(videos))
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-            pbar.set_postfix({'loss': f'{loss.item():.6f}'})
+        # # Train
+        # model.train()
+        # train_loss = 0.0
+        # pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}')
+        # for batch_idx, batch in enumerate(pbar):
+        #     videos = batch[0].to(device, non_blocking=True)
+        #     optimizer.zero_grad()
+        #     loss = criterion(*model(videos))
+        #     loss.backward()
+        #     optimizer.step()
+        #     train_loss += loss.item()
+        #     pbar.set_postfix({'loss': f'{loss.item():.6f}'})
             
-            if use_wandb:
-                wandb.log({'batch_loss': loss.item(), 'learning_rate': optimizer.param_groups[0]['lr']},
-                         step=epoch * len(train_loader) + batch_idx)
+        #     if use_wandb:
+        #         wandb.log({'batch_loss': loss.item(), 'learning_rate': optimizer.param_groups[0]['lr']},
+        #                  step=epoch * len(train_loader) + batch_idx)
         
-        train_loss /= len(train_loader)
-        train_losses.append(train_loss)
+        # train_loss /= len(train_loader)
+        # train_losses.append(train_loss)
         
-        # Validate
-        model.eval()
-        val_loss = 0.0
-        val_features = []
-        with torch.no_grad():
-            for batch in tqdm(val_loader, desc='Validation'):
-                videos = batch[0].to(device, non_blocking=True)
-                val_feature, layer_positions = model(videos)
-                loss = criterion(val_feature, layer_positions)
-                val_features.append([v.cpu() for v in val_feature])
-                val_loss += loss.item()
+        # # Validate
+        # model.eval()
+        # val_loss = 0.0
+        # val_features = []
+        # with torch.no_grad():
+        #     for batch in tqdm(val_loader, desc='Validation'):
+        #         videos = batch[0].to(device, non_blocking=True)
+        #         val_feature, layer_positions = model(videos)
+        #         loss = criterion(val_feature, layer_positions)
+        #         val_features.append([v.cpu() for v in val_feature])
+        #         val_loss += loss.item()
         
-        val_loss /= len(val_loader)
-        val_losses.append(val_loss)
+        # val_loss /= len(val_loader)
+        # val_losses.append(val_loss)
         
-        print(f'\nEpoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}')
+        # print(f'\nEpoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}')
 
-        # Visualization
-        validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
+        # # Visualization
+        # validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
 
         with model.smoothing_enabled(fwhm_mm=0.0, resolution_mm=1.0):
             validate_floc(
@@ -200,18 +201,18 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
 if __name__ == '__main__':
     # Config
     model_name = 'vjepa'
-    data_name = 'kinetics400'  # 'smthsmthv2', 'kinetics400', 'imagenet'
+    data_name = 'smthsmthv2'  # 'smthsmthv2', 'kinetics400', 'imagenet'
     layer_indices = [14, 18, 22] 
     batch_size = 32
-    lr = 5e-5
+    lr = 1e-4
     num_epochs = 5
-    samples_per_batch = 8192 * 2
+    neighborhoods_per_batch = 128
     exponentially_interpolate = False
     constant_rf_overlap = False
     large_neighborhood = False
     inf_neighborhood = True
     single_sheet = True
-    use_wandb, wandb_project = True, 'tdann-transform'
+    use_wandb, wandb_project = False, 'tdann-transform'
     resume_training = True
     seed = 42
 
@@ -237,9 +238,10 @@ if __name__ == '__main__':
     # Model setup
     model = TopoTransformedVJEPA(layer_indices=layer_indices, exponentially_interpolate=exponentially_interpolate, constant_rf_overlap=constant_rf_overlap, 
                                  single_sheet=single_sheet, large_neighborhood=large_neighborhood, inf_neighborhood=inf_neighborhood, seed=seed)
-    config_id = get_config_id(model.name, data_name, lr, batch_size, prefix="global_")
+    config_id = get_config_id(model.name, data_name, lr, batch_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    criterion = GlobalSpatialCorrelationLoss(samples_per_batch=samples_per_batch)
+    neighborhoods_per_batch = neighborhoods_per_batch if not single_sheet else neighborhoods_per_batch * len(layer_indices)
+    criterion = SpatialCorrelationLoss(model.num_layers, neighborhoods_per_batch=neighborhoods_per_batch, single_sheet=single_sheet)
     
     # Directories
     storage_path = config.CACHE_DIR / "train_topo" / config_id
