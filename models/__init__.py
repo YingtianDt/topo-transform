@@ -1,6 +1,7 @@
 from .mvit.mvitv1 import MViTV1
 from .uniformer import UniFormer
-from .vjepa import VJEPA
+from .vjepa import VJEPA, VJEPASwapopt
+from .tdann import TDANN
 
 from torchvision import transforms
 

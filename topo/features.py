@@ -11,6 +11,25 @@ UNIFORMER_LAYERS = [
     *[f'model.blocks4.{i}' for i in range(0,  7)],
 ]
 
+
+def resolve_sequential_module_from_str(model: nn.Module, model_layer: str) -> nn.Module:
+    """
+    Recursively resolves the model layer name by drilling into nested nn.Sequential
+    """
+    # initialize top level as the model
+    layer_module = model
+
+    # iterate over parts separated by a period, replacing layer_module with the next
+    # sublayer in the chain
+    for part in model_layer.split("."):
+        layer_module = layer_module._modules.get(part)
+        assert (
+            layer_module is not None
+        ), f"No submodule found for layer {model_layer}, at part {part}."
+
+    return layer_module
+
+
 class FeatureExtractor:
     def __init__(self):
         pass
@@ -35,14 +54,7 @@ class LayerFeatureExtractor(FeatureExtractor):
         self.layer_names = layer_names
 
     def _get_layer(self, model, layer_name):
-        modules = layer_name.split('.')
-        layer = model
-        for mod in modules:
-            if mod.isdigit():
-                layer = layer[int(mod)]
-            else:
-                layer = getattr(layer, mod)
-        return layer
+        return resolve_sequential_module_from_str(model, layer_name)
 
     def _hook_fn(self, layer_name):
         def hook(module, input, output):
@@ -106,4 +118,21 @@ class VJEPAFeatureExtractor(LayerFeatureExtractor):
             return feature
         elif self.ret_type == 'chw':
             feature = feature.mean(dim=1)  # B x C x H x W
+
+
+class TDANNFeatureExtractor(LayerFeatureExtractor):
+    def __init__(self):
+        super().__init__(["model.layer4.1"])
+
+    @property
+    def layer_dims(self):
+        return [(512, 7, 7)]
+
+    @property
+    def num_target_layers(self):
+        return 1
+
+    def extract_features(self, model, inputs):
+        features = super().extract_features(model, inputs)
+        return features
 
