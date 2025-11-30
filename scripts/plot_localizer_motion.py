@@ -59,8 +59,9 @@ def load_robert_tvals():
 
     return t_vals
 
-def plot_all_rois(all_t_vals, ckpts, rois, store_dir, p_threshold=0.001, t_threshold=0):
-    os.makedirs(store_dir, exist_ok=True)
+def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0):
+    if store_dir is not None:
+        os.makedirs(store_dir, exist_ok=True)
 
     masks_models = [[] for _ in rois]
     for ckpt in ckpts:
@@ -87,34 +88,7 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir, p_threshold=0.001, t_thres
             t_vals_models.append(t_vals_model)
 
         mean_models = np.array([(t_vals>0).mean() for t_vals in t_vals_models])  # shape: (n_checkpoints)
-        mean_humans = np.array([(t_vals[mask_human]>0).mean() for t_vals in t_vals_robert])
-
-        # from matplotlib import pyplot as plt
-        # from nilearn import datasets, plotting
-        # fsaverage = datasets.fetch_surf_fsaverage(mesh='fsaverage5')
-        # # Plot Left Hemisphere
-        # plotting.plot_surf_stat_map(
-        #     surf_mesh=fsaverage.pial_left,
-        #     stat_map=mask_human[:10242],
-        #     hemi='left',
-        #     bg_map=fsaverage.sulc_left,
-        #     title='Robert t-values (Left Hemisphere)',
-        #     colorbar=True
-        # )
-        # plt.savefig(f"{roi}.png")
-        # plt.close()
-
-        # plotting.plot_surf_stat_map(
-        #     surf_mesh=fsaverage.pial_left,
-        #     stat_map=mask_human[:10242],
-        #     hemi='left',
-        #     bg_map=fsaverage.sulc_left,
-        #     title='Robert t-values (Left Hemisphere)',
-        #     view='ventral',
-        #     colorbar=True
-        # )
-        # plt.savefig(f"{roi}_ventral.png")
-        # plt.close()
+        mean_humans = np.array([(t_vals[mask_human]>0).mean() for t_vals in t_vals_robert]) # shape: (n_individuals)
 
         mean_model = mean_models.mean(0)
         std_model = mean_models.std(0)
@@ -127,6 +101,13 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir, p_threshold=0.001, t_thres
         all_means_human.append(mean_humans)
         means_human.append(mean_human)
         stds_human.append(std_human)
+
+    # compute MAPE between model and human
+    mape = np.mean(np.abs(np.array(means_model) - np.array(means_human)) / np.array(means_human))
+    print(f"Mean Absolute Percentage Error (MAPE) between model and human: {mape:.4f}")
+
+    if store_dir is None:
+        return mape
 
     plt.figure(figsize=(4, 3))
     x = np.arange(len(rois))
@@ -148,13 +129,14 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir, p_threshold=0.001, t_thres
 
     print(f"Saved localizer t-values comparison plot to {store_dir / 'localizer_tvals_comparison.svg'}")
 
+    return mape
+
 if __name__ == "__main__":
-    ckpt_names = MODEL_CKPTS
     store_dir = PLOTS_DIR
     store_dir.mkdir(parents=True, exist_ok=True)
 
     all_t_vals = []
-    for ckpt_name in ckpt_names:
+    for ckpt_name in MODEL_CKPTS:
         print(f"Processing checkpoint: {ckpt_name}")
         t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
         t_vals = t_vals_dicts['robert']
@@ -182,4 +164,22 @@ if __name__ == "__main__":
         'psts',
     ]
 
-    plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
+    model_mape = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
+
+
+    all_t_vals = []
+    for ckpt_name in TDANN_CKPTS:
+        print(f"Processing checkpoint: {ckpt_name}")
+        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
+        t_vals = t_vals_dicts['robert']
+        all_t_vals.append(t_vals)
+
+    tdann_mape = plot_all_rois(all_t_vals, TDANN_CKPTS, rois, store_dir=None)
+
+    # plot bar comparison
+    plt.figure(figsize=(3, 3))
+    plt.bar(['Model', 'TDANN'], [model_mape, tdann_mape], color=[MODEL_C, DEFAULT_C])
+    plt.ylabel('Mean Absolute Percentage Error (MAPE)')
+    plt.title('Localizer Motion Index MAPE Comparison')
+    plt.savefig(store_dir / 'localizer_motion_mape_comparison.svg')
+    plt.close()

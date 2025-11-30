@@ -80,14 +80,7 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
     
     # Set clean style
     plt.style.use('seaborn-v0_8-whitegrid')
-    
-    # ==========================================
-    # Subplot 1: Anaylsis
-    # ==========================================
-    
-    diff = np.array(model_smoothness_mean) - np.array(human_smoothness)
-    mae = np.mean(np.abs(diff))
-    
+        
     # Adjust layout with better spacing
     plt.tight_layout()
     
@@ -99,6 +92,8 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
         print(f"Plot saved to: {save_path}")
 
     # Print statistics
+    overall_model_stats = np.mean(model_smoothness_mean), np.std(model_smoothness_mean)
+    overall_human_stats = np.mean(human_smoothness), np.std(human_smoothness)
     print("\n" + "="*50)
     print("SMOOTHNESS STATISTICS")
     print("="*50)
@@ -123,17 +118,23 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
             print(f"  {cat:15s}: SD = {model_std:.4f}")
 
     plt.close()
-    return mae
+    return overall_model_stats, overall_human_stats
 
 
 if __name__ == '__main__':
     category = 'pitcher'
 
-    # model_mae = plot_smoothness_comparison(MODEL_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0)
-    tdann_mae = plot_smoothness_comparison(TDANN_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
+    model_stats, human_stats = plot_smoothness_comparison(MODEL_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0)
+    tdann_stats, human_stats = plot_smoothness_comparison(TDANN_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
     
-    plt.bar(['Model', 'TDANN'], [model_mae, tdann_mae], color=[MODEL_C, MODEL_C])
-    plt.ylabel('Mean Absolute Error (MAE)')
-    plt.title(f'Smoothness MAE Comparison - {category}')
-    plt.savefig(PLOTS_DIR / f'smoothness_mae_comparison_{category}.svg', dpi=300, bbox_inches='tight')
+    for stats, label, color in zip(
+        [human_stats, model_stats, tdann_stats], 
+        ['HUMAN', 'MODEL', 'TDANN'],
+        [HUMAN_C, MODEL_C, DEFAULT_C]
+    ):
+        mean_smoothness, std_smoothness = stats
+        plt.bar(label, mean_smoothness, yerr=std_smoothness, capsize=10, color=color)
+    plt.ylabel('Mean Smoothness')
+    plt.title(f'Smoothness Comparison for Category: {category}')
+    plt.savefig(PLOTS_DIR / f'smoothness_comparison_bar_{category}.svg', dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()

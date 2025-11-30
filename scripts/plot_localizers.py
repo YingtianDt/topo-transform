@@ -7,11 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
-from .common import MODEL_CKPT
+from .common import *
 from .get_localizers import localizers
 
 def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
-                  prefix='', suffix='', p_threshold=0.001, t_threshold=0, dpi=250):
+                  prefix='', suffix='', p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0, dpi=250):
     
     os.makedirs(store_dir, exist_ok=True)
 
@@ -84,9 +84,11 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
                         pos_filtered[:, 0], 
                         pos_filtered[:, 1],
                         color=color, 
-                        s=0.5,
+                        s=1.9,
                         alpha=0.8,
-                        label=roi_display_name if layer_idx == 0 else None
+                        label=roi_display_name if layer_idx == 0 else None,
+                        marker='s',
+                        edgecolors='none'
                     )
         
         # Format axes

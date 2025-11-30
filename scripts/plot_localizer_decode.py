@@ -20,39 +20,64 @@ rois = [
     'body',
     'v6',
     'psts',
-    'mt',
 ]
 
-all_scores = []
-for model_ckpt in MODEL_CKPTS:
-    scores = localizer_decode(model_ckpt, rois, num_splits=num_splits, fwhm_mm=2.0, resolution_mm=1.0)
-    all_scores.append(scores)
+def plot_localizer_decode(model_ckpts, store_dir=PLOTS_DIR):
+    all_scores = []
+    for model_ckpt in model_ckpts:
+        scores = localizer_decode(model_ckpt, rois, num_splits=num_splits, fwhm_mm=2.0, resolution_mm=1.0)
+        all_scores.append(scores)
 
-ceilings = localizer_decode_ceiling(rois, folds=10)
+    ceilings = localizer_decode_ceiling(rois, folds=10)
 
-model_scores = []
-human_ceilings = []
-for roi in rois:
-    mean_score = np.mean([scores[roi].mean() for scores in all_scores])
-    mean_ceiling = ceilings[rois.index(roi)].mean()
+    model_scores = []
+    human_ceilings = []
+    for roi in rois:
+        mean_score = np.mean([scores[roi].mean() for scores in all_scores])
+        mean_ceiling = ceilings[rois.index(roi)].mean()
 
-    model_scores.append(mean_score)
-    human_ceilings.append(mean_ceiling)
+        model_scores.append(mean_score)
+        human_ceilings.append(mean_ceiling)
 
-plt.figure(figsize=(4, 3))
-x = np.arange(len(rois))
-width = 0.35
-plt.bar(x - width/2, [s.mean() for s in model_scores], width, label='Model', capsize=5, color=MODEL_C)
-plt.bar(x + width/2, human_ceilings, width, label='Human', capsize=5, color=HUMAN_C, alpha=0.7)
+    if store_dir is None:
+        return model_scores, human_ceilings
+        
+    plt.figure(figsize=(4, 3))
+    x = np.arange(len(rois))
+    width = 0.35
+    plt.bar(x - width/2, [s.mean() for s in model_scores], width, label='Model', capsize=5, color=MODEL_C)
+    plt.bar(x + width/2, human_ceilings, width, label='Human', capsize=5, color=HUMAN_C, alpha=0.7)
 
-# scatter individual model scores
-for m, scores in enumerate(all_scores):
-    plt.scatter([x[m] - width/2]*len(scores), scores, color='black', alpha=0.3)
+    # scatter individual model scores
+    for m, scores in enumerate(all_scores):
+        plt.scatter([x[m] - width/2]*len(scores), scores, color='black', alpha=0.3)
 
-plt.xticks(x, rois)
-plt.ylabel('Decoding Score')
-plt.title('Localizer Decoding Scores by ROI')
-plt.legend()
-plt.tight_layout()
-plt.savefig(PLOTS_DIR / 'localizer_decoding_scores_comparison.svg')
-plt.close()
+    plt.xticks(x, rois)
+    plt.ylabel('Decoding Score')
+    plt.title('Localizer Decoding Scores by ROI')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(store_dir / 'localizer_decoding_scores_comparison.svg')
+    plt.close()
+
+    return model_scores, human_ceilings
+
+if __name__ == '__main__':
+    model_scores, human_scores = plot_localizer_decode(MODEL_CKPTS, store_dir=PLOTS_DIR)
+    tdann_scores, human_scores = plot_localizer_decode(TDANN_CKPTS, store_dir=None)
+
+    plt.bar(['Model', 'TDANN'], [np.mean(model_scores), np.mean(tdann_scores)], color=[MODEL_C, MODEL_C])
+    plt.ylabel('Mean Decoding Score')
+    plt.title('Localizer Decoding Score Comparison')
+
+    # add ceiling as horizontal zone
+    mean_human_score = np.mean(human_scores)
+    std_human_score = np.std(human_scores)
+    plt.fill_between([-0.5, 1.5], 
+                     mean_human_score - std_human_score, 
+                     mean_human_score + std_human_score, 
+                     color=HUMAN_C, alpha=0.3, label='Human Ceiling ±1 std')
+    plt.axhline(mean_human_score, color=HUMAN_C, linestyle='--', linewidth=2, alpha=0.7)
+
+    plt.savefig(PLOTS_DIR / 'localizer_decoding_score_comparison.svg', dpi=300, bbox_inches='tight')
+    plt.close()

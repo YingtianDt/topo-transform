@@ -130,7 +130,7 @@ class TopoTransformedModel(nn.Module):
 
 
 class TopoTransformedVJEPA(TopoTransformedModel):
-    def __init__(self, layer_indices=[14,18,22], smoothing=False, exponentially_interpolate=False, 
+    def __init__(self, layer_indices=[14,18,22], smoothing=False, exponentially_interpolate=False, no_transform=False, 
                 constant_rf_overlap=False, rebuild=False, single_sheet=True, large_neighborhood=False, inf_neighborhood=True, seed=42, swapopt=False):
         from models import VJEPA, VJEPASwapopt
         from .features import VJEPAFeatureExtractor
@@ -160,6 +160,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
 
         self.single_sheet = single_sheet
         self.smoothing = smoothing
+        self.no_transform = no_transform
         
         self.swapopt = swapopt
         model = VJEPA() if not swapopt else VJEPASwapopt()
@@ -218,7 +219,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
 
-        if do_transform and not self.swapopt:
+        if do_transform and not self.swapopt and not self.no_transform:
             layer_features = self.transform(layer_features)
 
         if self.single_sheet:
@@ -242,6 +243,8 @@ class TopoTransformedTDANN(TopoTransformedModel):
     def __init__(self, seed=0):
         from models import TDANN
         from .features import TDANNFeatureExtractor
+        
+        name = 'tdann_4.1_single'
         
         model = TDANN()
         extractor = TDANNFeatureExtractor()
