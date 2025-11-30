@@ -1,3 +1,5 @@
+from config import ROOT_KINETICS400
+
 import os
 import numpy as np
 import glob
@@ -13,7 +15,7 @@ from .utils.io import Video
 class Kinetics400:
     def __init__(
         self,
-        root: str = '/data2/ynshah/Kinetics400/k400',
+        root: str = ROOT_KINETICS400,
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
@@ -94,14 +96,13 @@ class _Kinetics400(Dataset):
         print(self.root)
 
         self.video_paths = glob.glob(os.path.join(self.root, "*.mp4"))
+        self.classes = self._load_classes()
 
         # randomly subsample the dataset if subsample_factor < 1.0
         if subsample_factor < 1.0:
             num_videos = len(self.video_paths)
             subsample_size = int(num_videos * subsample_factor)
             self.video_paths = list(np.random.choice(self.video_paths, subsample_size))
-
-        self.classes = self._load_classes()
 
     def _load_classes(self) -> dict:
         """Load class names and create class-to-index mapping."""

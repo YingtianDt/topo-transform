@@ -5,9 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from .get_neural_alignment import neural_alignment
+from .get_task_performance import task_performance
 
 from .common import MODEL_CKPT
 
+def plot_task_performance_comparison(ckpt_name):
+    tasks = [
+        "imagenet",
+        "ssv2",
+    ]
+    for task in tasks:
+        _ = task_performance(ckpt_name, task)
 
 def plot_neural_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
     """
@@ -129,8 +137,8 @@ if __name__ == "__main__":
     # Example usage
     ckpt_name = MODEL_CKPT
     num_splits = 1  # Adjust as needed
-    
 
+    plot_task_performance_comparison(ckpt_name)
     fig, ax, stats = plot_neural_alignment_comparison(ckpt_name, num_splits=num_splits)
     
     # Print statistics

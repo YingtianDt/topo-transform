@@ -1,13 +1,12 @@
 import torch
 import numpy as np
-# import cupy as cp
 
 from .ridgecv import RidgeGCVTorch
 
 
 def make_decoder(test_type, device):
     if test_type == 'classify':
-        decoder = CuMLLogisticRegression(max_iter=10000)
+        decoder = CuMLLogisticRegression(max_iter=10000, C=1e3)
     elif test_type.endswith('regress'):
         decoder = RidgeGCVTorch(alphas=np.logspace(-8, 8, 17), device=device)
         decoder = PearsonRScore(decoder)
@@ -93,6 +92,7 @@ class CuMLLogisticRegression:
         self.return_tensor = return_tensor  # whether to return torch.Tensor
 
     def _to_cupy(self, x):
+        import cupy as cp
         if isinstance(x, torch.Tensor):
             x = x.detach().cpu().numpy()
         elif isinstance(x, np.ndarray):
@@ -107,6 +107,7 @@ class CuMLLogisticRegression:
         self.model.fit(X_cu, y_cu)
 
     def predict(self, X):
+        import cupy as cp
         X_cu = self._to_cupy(X)
         preds = self.model.predict(X_cu)
         if self.return_tensor:
@@ -132,6 +133,8 @@ class PearsonRScore:
         return self.regressor.predict(X)
 
     def score(self, X, y):
+        import cupy as cp
+
         pred = self.predict(X)
 
         # compute in numpy

@@ -1,29 +1,44 @@
 import config
 
 import torch
-from topo import TopoTransformedVJEPA
+from topo import TopoTransformedVJEPA, TopoTransformedTDANN
 from .autocorr import validate_autocorr
 from .floc import *
 from .invertible import validate_invertibility
 
 
-def load_transformed_model(layer_indices=[14,18,22], checkpoint_name=None, checkpoint_path=None, device='cuda'):
+def load_transformed_model(checkpoint_name, device='cuda'):
     """Load a trained TopoTransformedVJEPA model."""
-    assert checkpoint_path is not None or checkpoint_name is not None, \
-        "Either checkpoint_name or checkpoint_path must be provided."
-    if checkpoint_path is None:
+
+    if "tdann." in checkpoint_name:
+        seed = int(checkpoint_name.split("_seed")[-1].split(".")[0])
+        model = TopoTransformedTDANN(seed=seed)
+        model.name = checkpoint_name
+        checkpoint_path = config.CACHE_DIR / "checkpoints" / checkpoint_name.replace("tdann.", "tdann/")
+        model.model.load_pretrained_weights(checkpoint_path)
+        print(f"Loaded TopoTransformedTDANN model from {checkpoint_path}.")
+        epoch = None
+    elif checkpoint_name == "swapopt":
+    #     model = TopoTransformedVJEPA(layer_indices=[14, 18, 22] if not is_swapopt else [18], seed=42, swapopt=is_swapopt, inf_neighborhood=not is_swapopt)
+        layer_indices = [18]
+        model = TopoTransformedVJEPA(layer_indices=layer_indices, swapopt=True, inf_neighborhood=False)
+        model.name = "swapopt"
+        epoch = None
+    else:
+        layer_indices=[14,18,22]
         checkpoint_path = config.CACHE_DIR / "checkpoints" / checkpoint_name
-    model = TopoTransformedVJEPA(layer_indices=layer_indices)
-    model.name = checkpoint_name if checkpoint_name is not None else str(checkpoint_path.stem)
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    msg = model.load_state_dict(checkpoint['transformed_model_state_dict'], strict=False)
-    epoch = checkpoint.get('epoch', None)
-    print(f"Loaded TopoTransformedVJEPA model from {checkpoint_path} (epoch {epoch}).")
-    print(msg)
+        model = TopoTransformedVJEPA(layer_indices=layer_indices)
+        model.name = checkpoint_name if checkpoint_name is not None else str(checkpoint_path.stem)
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        msg = model.load_state_dict(checkpoint['transformed_model_state_dict'], strict=False)
+        epoch = checkpoint.get('epoch', None)
+        print(f"Loaded TopoTransformedVJEPA model from {checkpoint_path} (epoch {epoch}).")
+        print(msg)
+
     model.to(device)
+    
     return model, epoch
 
 
 if __name__ == "__main__":
-    ckpt_pth = config.CACHE_DIR / "checkpoints" / "best_transformed_model_vjepa_4_8_12_16_20_lr0p1_bs32.pt"
-    model, epoch = load_transformed_model(checkpoint_path=ckpt_pth, device='cpu')
+    model, epoch = load_transformed_model("tdann/model_final_checkpoint_phase199_seed1.torch", device='cpu')

@@ -20,6 +20,7 @@ BIOLOGICAL_MOTION = '/mnt/scratch/ytang/datasets/biological-motion'
 def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION, transform=None, frames_per_video=24, video_fps=12):
     """Create a category dataset for the Biological Motion dataset (Vanrie 2004)."""
     file_infos = defaultdict(list)
+    fnames = None
     for category in os.listdir(data_dir):
         if category == "normal_static":  # skip neutral category
             continue
@@ -28,6 +29,12 @@ def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION, transform=None, frame
             for fname in os.listdir(category_dir):
                 if fname.endswith(('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')):
                     file_infos[category].append((os.path.join(category_dir, fname), category))
+            file_infos[category].sort()
+
+            if fnames is None:
+                fnames = [os.path.basename(f[0]) for f in file_infos[category]]
+            else:
+                assert fnames == [os.path.basename(f[0]) for f in file_infos[category]], "Filenames do not match across categories."
 
     return file_infos
 

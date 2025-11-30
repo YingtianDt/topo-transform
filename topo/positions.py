@@ -21,7 +21,7 @@ from spacetorch.utils.spatial_utils import (
     precompute_neighborhoods,
 )
 from spacetorch.utils.generic_utils import load_config_from_yaml
-from spacetorch.paths import POSITION_DIR
+from config import POSITION_DIR
 
 # script constants
 POS_VERSION = 3  # increment this every time the position scheme changes

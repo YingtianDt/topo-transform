@@ -2,10 +2,11 @@ from utils import cached
 from models import vit_transform
 from validate.floc import *
 from validate import load_transformed_model
-from validate.fdr import false_discovery_control
+from validate.correction import fdr, fwe
 
 
-FLOC_DATASETS = ['kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
+FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
+LOCALIZER_RERUN = False
 
 def _localizers(
         checkpoint_name, 
@@ -130,17 +131,18 @@ def localizers(
     import hashlib
     dataset_str = '_'.join(sorted(dataset_names))
     hash_suffix = hashlib.md5(dataset_str.encode()).hexdigest()[:8]
-    t_vals_dicts, p_vals_dicts, layer_positions = cached(f"localizers_{checkpoint_name}_{hash_suffix}_{fwhm_mm}_{resolution_mm}")(
-        _localizers
-    )(checkpoint_name, dataset_names, device=device, frames_per_video=frames_per_video, video_fps=video_fps, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+    t_vals_dicts, p_vals_dicts, layer_positions = cached(
+        f"localizers_{checkpoint_name}_{hash_suffix}_{fwhm_mm}_{resolution_mm}",
+        rerun=LOCALIZER_RERUN
+    )(_localizers)(checkpoint_name, dataset_names, device=device, frames_per_video=frames_per_video, video_fps=video_fps, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
-    # fdr
+    # p val correction
     tmp = []    
     for p_vals_dict in p_vals_dicts:
         fdr_p_vals_dict = {}
         for roi_name, p_vals in p_vals_dict.items():
             shapes = [p_val.shape for p_val in p_vals]
-            fdr_p_vals = [false_discovery_control(p_val) for p_val in p_vals]
+            fdr_p_vals = [fwe(p_val) for p_val in p_vals]
             fdr_p_vals_dict[roi_name] = [fdr_p_val.reshape(shape) for fdr_p_val, shape in zip(fdr_p_vals, shapes)]
         tmp.append(fdr_p_vals_dict)
     p_vals_dicts = tmp
@@ -159,7 +161,7 @@ def localizers(
     return t_vals_dicts, p_vals_dicts, layer_positions
 
 
-def get_localizer_model(rois, ckpt_name, p_thres=0.01, fwhm_mm=2.0, resolution_mm=1.0):
+def get_localizer_model(rois, ckpt_name, p_thres=0.01, t_thres=0, fwhm_mm=2.0, resolution_mm=1.0):
     t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
     # merge p_vals_dicts
@@ -167,35 +169,48 @@ def get_localizer_model(rois, ckpt_name, p_thres=0.01, fwhm_mm=2.0, resolution_m
     for p_vals in p_vals_dicts:
         p_val_dict.update(p_vals)
 
-    def _pval_filter(p_val):
-        mask = p_val < p_thres
+    # merge t_vals_dicts
+    t_val_dict = {}
+    for t_vals in t_vals_dicts:
+        t_val_dict.update(t_vals)
+
+    def _filter(p_val, t_val):
+        mask = (p_val < p_thres) & (t_val > t_thres)
         return mask
 
     ret = []
     for roi in rois:
         if roi == "face":
-            p_vals = p_val_dict["Faces_localizer"]
+            p_vals = p_val_dict["face"]
+            t_vals = t_val_dict["face"]
         elif roi == "place":
-            p_vals = p_val_dict["Scenes_localizer"]
+            p_vals = p_val_dict["place"]
+            t_vals = t_val_dict["place"]
         elif roi == "body":
-            p_vals = p_val_dict["Bodies_localizer"]
+            p_vals = p_val_dict["body"]
+            t_vals = t_val_dict["body"]
         elif roi == "object":
-            p_vals = p_val_dict["Objects_localizer"]
+            p_vals = p_val_dict["object"]
+            t_vals = t_val_dict["object"]
         elif roi == "v6":
             p_vals = p_val_dict["V6"]
+            t_vals = t_val_dict["V6"]   
         elif roi == "psts":
             p_vals = p_val_dict["pSTS"]
+            t_vals = t_val_dict["pSTS"]
         elif roi == "mt":
             p_vals = p_val_dict["MT-Huk"]
+            t_vals = t_val_dict["MT-Huk"]
         else:
             raise ValueError(f"Unknown roi: {roi}")
-        masks = [_pval_filter(p_val) for p_val in p_vals]  # layers
+        masks = [_filter(p_val, t_val) for p_val, t_val in zip(p_vals, t_vals)]  # layers
         ret.append(masks)
     return ret
 
+
 def get_localizer_human(rois):
-    from validate.rois import glasser
-    from validate.rois import visf
+    from validate.rois import glasser, visf
+
     ret = []
     for roi in rois:
         if roi == "face":
@@ -209,14 +224,11 @@ def get_localizer_human(rois):
         elif roi == "v6":
             mask = glasser.get_region_voxels(["V6"])
         elif roi == "psts":
-            mask = glasser.get_region_voxels(["TPOJ2"])
+            mask = glasser.get_region_voxels(["TPOJ2","TPOJ1"])
         elif roi == "mt":
             mask = visf.get_region_voxels("hMT")
         else:
             raise ValueError(f"Unknown roi: {roi}")
+
         ret.append(mask)
     return ret
-
-
-            
-            

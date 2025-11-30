@@ -1,3 +1,4 @@
+from config import ROOT_IMAGENETVID
 import os
 from typing import Tuple, Optional, List
 
@@ -13,7 +14,7 @@ from .utils.transforms import Transforms, shake
 class ImageNetVid:
     def __init__(
         self,
-        root: str = '/mnt/scratch/akgokce/datasets/imagenet',
+        root: str = ROOT_IMAGENETVID,
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),
@@ -113,12 +114,46 @@ class _ImageNetVid(Dataset):
                     self.labels.append(self.class_to_idx[class_name])
 
         if subsample_factor < 1.0:
-            num_images = len(self.image_paths)
-            subsample_size = int(num_images * subsample_factor)
-            selected_indices = list(np.random.choice(num_images, subsample_size, replace=False))
+            self.num_classes_limit = 100
+            from collections import defaultdict
+
+            # group indices by class
+            per_class = defaultdict(list)
+            for idx, lbl in enumerate(self.labels):
+                per_class[lbl].append(idx)
+
+            # ---------------------------
+            # restrict number of classes
+            # ---------------------------
+            max_classes = self.num_classes_limit
+            all_classes = list(per_class.keys())
+            all_classes.sort()
+            if len(all_classes) > max_classes:
+                np.random.seed(42)
+                selected_classes = np.random.choice(all_classes, max_classes, replace=False)
+                selected_classes = set(selected_classes)
+            else:
+                selected_classes = set(all_classes)
+
+            # filter per_class to only selected classes
+            per_class = {lbl: idxs for lbl, idxs in per_class.items() if lbl in selected_classes}
+
+            # ---------------------------
+            # class-balanced subsampling
+            # ---------------------------
+            selected_indices = []
+            for lbl, idxs in per_class.items():
+                k = max(1, int(len(idxs) * subsample_factor))  # ensure at least one sample per class
+                chosen = np.random.choice(idxs, k, replace=False)
+                selected_indices.extend(chosen)
+
+            # sort to keep order stable (optional)
+            selected_indices = sorted(selected_indices)
+
+            # apply subsampling
             self.image_paths = [self.image_paths[i] for i in selected_indices]
             self.labels = [self.labels[i] for i in selected_indices]
-    
+
     def __getitem__(self, idx: int) -> Tuple:
         """Get video data from static image."""
         img_path = self.image_paths[idx]

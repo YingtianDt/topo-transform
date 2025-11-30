@@ -20,9 +20,9 @@ def Robert_category_dataset(data_dir=ROBERT, transform=None, frames_per_video=36
     """Create a category dataset for the Robert dataset."""
     file_infos = defaultdict(list)
     for fname in os.listdir(data_dir):
-        if fname.endswith('.mat'): continue
-        category = 'dynamic' if fname.endswith('.mp4') else 'static'
-        file_infos[category].append((os.path.join(data_dir, fname), category))
+        if fname.endswith('.mat') or fname.endswith('.mp4'): continue
+        file_infos['static'].append((os.path.join(data_dir, fname), 'static'))
+        file_infos['dynamic'].append((os.path.join(data_dir, fname).replace('.png', '.mp4'), 'dynamic'))
 
     return file_infos
 

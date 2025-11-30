@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 
+DEBUG = True
+RERUN = False
+YASH = False
+
 HOME_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
 # Environment setup
@@ -25,9 +29,6 @@ os.environ['HF_HOME'] = str(CACHE_DIR / 'hf')
 os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
-DEBUG = True
-RERUN = False
-
 if DEBUG:
     print("*" * 100)
     print(" " * 30 + f"WARNING: DEBUG MODE IS ON, RERUN {'ON' if RERUN else 'OFF'}")
@@ -37,3 +38,19 @@ if DEBUG:
 # from matplotlib import rcParams
 # rcParams['font.family'] = 'Arial'
 # rcParams['mathtext.fontset'] = 'dejavusans'
+
+
+ROOT_KINETICS400 = '/mnt/scratch/fkolly/datasets/kinetics-dataset/k400'
+ROOT_IMAGENETVID = '/mnt/scratch/akgokce/datasets/imagenet'
+ROOT_AFD101 = '/mnt/scratch/fkolly/datasets/AFD101'
+ROOT_SSV2 = '/mnt/scratch/fkolly/datasets/smthsmthv2'
+PRETRAINED_DIR = "/mnt/scratch/fkolly/brainmo/pretrained"
+POSITION_DIR = CACHE_DIR / "positions"
+POSITION_DIR.mkdir(exist_ok=True, parents=True)
+
+
+if YASH:
+    ROOT_KINETICS400 = '/data2/ynshah/Kinetics400/k400'
+    ROOT_IMAGENETVID = '/data2/ynshah/imagenet-vid'
+    PRETRAINED_DIR = "/data2/ynshah/tdann-transform/cache/checkpoints"
+    from spacetorch.paths import POSITION_DIR

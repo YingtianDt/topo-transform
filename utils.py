@@ -14,6 +14,7 @@ def cached(
     cache_dir: Optional[Path] = None,
     verbose: bool = True,
     persistent: bool = False,
+    rerun: bool = False,
 ):
     """Decorator for caching function results.
     
@@ -44,7 +45,7 @@ def cached(
             cache_file = _cache_dir / f"{cache_name}.pkl"
             
             # If RERUN is True, force recompute
-            if RERUN:
+            if RERUN or rerun:
                 if verbose:
                     print(f"[Cache] RERUN=True, recomputing {cache_name}")
                 result = func(*args, **kwargs)

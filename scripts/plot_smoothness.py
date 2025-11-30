@@ -222,10 +222,10 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
     
     # Build legend
     handles = [bars, scatter_point]
-    if len(model_paths) > 1:
-        handles.append(ax1.errorbar([], [], yerr=[], fmt='none', ecolor='#5A6B89', 
-                                    elinewidth=2, capsize=5, capthick=2, alpha=0.6, 
-                                    label='95% CI')[0])
+    # if len(model_paths) > 1:
+    #     handles.append(ax1.errorbar([], [], yerr=[], fmt='none', ecolor='#5A6B89', 
+    #                                 elinewidth=2, capsize=5, capthick=2, alpha=0.6, 
+    #                                 label='95% CI')[0])
     handles.append(human_line)
     ax1.legend(handles=handles, loc='upper left', fontsize=10, frameon=True, 
               fancybox=False, shadow=False, framealpha=0.9)
@@ -316,9 +316,9 @@ if __name__ == '__main__':
     # Example usage
     
     # Single model
-    model_path = MODEL_CKPT
+    model_paths = MODEL_CKPTS
     category = 'pitcher'
-    ret = plot_smoothness_comparison(model_path, category, fwhm_mm=2.0, resolution_mm=1.0)
+    ret = plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm=1.0)
     
     # Multiple models
     # model_paths = [MODEL_CKPT_1, MODEL_CKPT_2, MODEL_CKPT_3]

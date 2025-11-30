@@ -124,28 +124,28 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
         
         print(f'\nEpoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}')
 
-        # Visualization
-        validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
+        # # Visualization
+        # validate_autocorr(val_features, layer_positions, figure_dir, epoch=epoch)
 
-        with model.smoothing_enabled(fwhm_mm=0.0, resolution_mm=1.0):
-            validate_floc(
-                model, 
-                vit_transform, 
-                dataset_names=[
-                    "biomotion", 
-                    "vpnl", 
-                    "kanwisher", 
-                    "pitzalis",
-                    "motion", 
-                    "temporal",
-                    # "pitcher",
-                ],
-                viz_dir=figure_dir,
-                device=device,
-                plot_individual=True,
-                plot_aggregate=True,
-                epoch=epoch
-            )
+        # with model.smoothing_enabled(fwhm_mm=0.0, resolution_mm=1.0):
+        #     validate_floc(
+        #         model, 
+        #         vit_transform, 
+        #         dataset_names=[
+        #             "biomotion", 
+        #             "vpnl", 
+        #             "kanwisher", 
+        #             "pitzalis",
+        #             "motion", 
+        #             "temporal",
+        #             # "pitcher",
+        #         ],
+        #         viz_dir=figure_dir,
+        #         device=device,
+        #         plot_individual=True,
+        #         plot_aggregate=True,
+        #         epoch=epoch
+        #     )
         
         # W&B logging
         if use_wandb:

@@ -10,8 +10,8 @@ from matplotlib.colors import Normalize
 from .common import MODEL_CKPT
 from .get_localizers import localizers
 
-def plot_all_rois(p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
-                  prefix='', suffix='', p_threshold=0.001, dpi=250):
+def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
+                  prefix='', suffix='', p_threshold=0.001, t_threshold=0, dpi=250):
     
     os.makedirs(store_dir, exist_ok=True)
 
@@ -22,12 +22,21 @@ def plot_all_rois(p_vals_dict, layer_positions, store_dir, figsize_per_panel=5,
         "Faces_moving_localizer": ("dynamic-face", (1.00, 0.80, 0.80)),
         "Bodies_moving_localizer": ("dynamic-body", (0.80, 1.00, 0.80)),
         "Scenes_moving_localizer": ("dynamic-place", (1.00, 0.90, 0.70)),
+        "Faces_static": ("static-face", (0.75, 0.00, 0.00)),
+        "Bodies_static": ("static-body", (0.00, 0.45, 0.00)),
+        "Scenes_static": ("static-place", (0.80, 0.35, 0.00)),
+        "Faces_moving": ("dynamic-face", (1.00, 0.80, 0.80)),
+        "Bodies_moving": ("dynamic-body", (0.80, 1.00, 0.80)),
+        "Scenes_moving": ("dynamic-place", (1.00, 0.90, 0.70)),
         "V6": ("V6", (0.0, 0.85, 0.95)),
         "MT": ("MT", (0.95, 0.20, 0.70)),
         "pSTS": ("pSTS", (0.85, 0.85, 0.0)),
     }
 
     roi_groups = {
+        "face-response": ["Faces_static", "Faces_moving"],
+        "body-response": ["Bodies_static", "Bodies_moving"],
+        "place-response": ["Scenes_static", "Scenes_moving"],
         "face": ["Faces_static_localizer", "Faces_moving_localizer"],
         "body": ["Bodies_static_localizer", "Bodies_moving_localizer"],
         "place": ["Scenes_static_localizer", "Scenes_moving_localizer"],
@@ -59,14 +68,15 @@ def plot_all_rois(p_vals_dict, layer_positions, store_dir, figsize_per_panel=5,
         for roi_name in available_rois:
             roi_display_name, color = all_roi_colors[roi_name]
             p_vals_list = p_vals_dict[roi_name]
+            t_vals_list = t_vals_dict[roi_name]
             
-            for layer_idx, p_vals in enumerate(p_vals_list):
+            for layer_idx, (p_vals, t_vals) in enumerate(zip(p_vals_list, t_vals_list)):
                 pos = layer_positions[layer_idx]
                 if isinstance(pos, torch.Tensor):
                     pos = pos.cpu().numpy()
                 
                 # Filter by p-value threshold
-                mask = p_vals.flatten() < p_threshold
+                mask = (p_vals.flatten() < p_threshold) & (t_vals.flatten() > t_threshold)
                 pos_filtered = pos[mask]
                 
                 if len(pos_filtered) > 0:
@@ -100,4 +110,4 @@ if __name__ == "__main__":
     store_dir.mkdir(parents=True, exist_ok=True)
 
     t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
-    plot_all_rois(p_vals_dict, layer_positions, store_dir)
+    plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir)

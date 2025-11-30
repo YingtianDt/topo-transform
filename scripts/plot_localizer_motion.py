@@ -19,7 +19,10 @@ def load_robert_tvals():
             continue
         t_val = np.load(os.path.join(ROBERT_STATS, individual))
         t_vals.append(t_val)
-    t_vals = np.array(t_vals).mean(axis=0)  # shape: (n_units,)
+    t_vals = np.array(t_vals)
+    t_vals_mean = t_vals.mean(0)
+
+    absvmax = np.max(np.abs(t_vals_mean))
 
     # from matplotlib import pyplot as plt
     # from nilearn import datasets, plotting
@@ -27,54 +30,64 @@ def load_robert_tvals():
     # # Plot Left Hemisphere
     # plotting.plot_surf_stat_map(
     #     surf_mesh=fsaverage.pial_left,
-    #     stat_map=-t_vals[:10242],
+    #     stat_map=t_vals_mean[:10242],
     #     hemi='left',
     #     bg_map=fsaverage.sulc_left,
     #     title='Robert t-values (Left Hemisphere)',
     #     colorbar=True,
     #     cmap='Spectral',
+    #     vmin=-absvmax,
+    #     vmax=absvmax,
     # )
     # plt.savefig(PLOTS_DIR / "robert_left.png")
     # plt.close()
 
     # plotting.plot_surf_stat_map(
     #     surf_mesh=fsaverage.pial_left,
-    #     stat_map=-t_vals[:10242],
+    #     stat_map=t_vals_mean[:10242],
     #     hemi='left',
     #     bg_map=fsaverage.sulc_left,
     #     title='Robert t-values (Left Hemisphere)',
     #     view='ventral',
     #     colorbar=True,
     #     cmap='Spectral',
+    #     vmin=-absvmax,
+    #     vmax=absvmax,
     # )
     # plt.savefig(PLOTS_DIR / "robert_ventral.png")
     # plt.close()
 
     return t_vals
 
-def plot_all_rois(all_t_vals, rois, store_dir, p_threshold=0.05):
+def plot_all_rois(all_t_vals, ckpts, rois, store_dir, p_threshold=0.001, t_threshold=0):
     os.makedirs(store_dir, exist_ok=True)
 
-    masks_model = get_localizer_model(rois, MODEL_CKPT, p_thres=p_threshold)
+    masks_models = [[] for _ in rois]
+    for ckpt in ckpts:
+        masks_model = get_localizer_model(rois, ckpt, p_thres=p_threshold, t_thres=t_threshold)
+        for r, _ in enumerate(rois):
+            masks_models[r].append(masks_model[r])
+            
     masks_human = get_localizer_human(rois)
     t_vals_robert = load_robert_tvals()
 
     all_means_model = []
+    all_means_human = []
     means_model = []
     means_human = []
     stds_model = []
     stds_human = []
-    for i, roi, mask_model, mask_human in zip(range(len(rois)), rois, masks_model, masks_human):
+    for i, roi, mask_model, mask_human in zip(range(len(rois)), rois, masks_models, masks_human):
         
         t_vals_models = []
-        for t_vals in all_t_vals:
-            t_vals_model = [t_val[mask] for t_val, mask in zip(t_vals, mask_model)]  # layers
+        for t_vals, mask in zip(all_t_vals, mask_model):
+            t_vals_model = [t_val[mask] for t_val, mask in zip(t_vals, mask)]  # layers
             # here just choose the first layer
             t_vals_model = t_vals_model[0]  # shape: (n_units,)
             t_vals_models.append(t_vals_model)
 
-        t_vals_models = np.array(t_vals_models)  # shape: (n_checkpoints, n_units)
-        t_vals_human = t_vals_robert[mask_human]  # shape: (n_units)
+        mean_models = np.array([(t_vals>0).mean() for t_vals in t_vals_models])  # shape: (n_checkpoints)
+        mean_humans = np.array([(t_vals[mask_human]>0).mean() for t_vals in t_vals_robert])
 
         # from matplotlib import pyplot as plt
         # from nilearn import datasets, plotting
@@ -103,32 +116,31 @@ def plot_all_rois(all_t_vals, rois, store_dir, p_threshold=0.05):
         # plt.savefig(f"{roi}_ventral.png")
         # plt.close()
 
-        portion_models = (t_vals_models > 0)
-        portion_human = (t_vals_human > 0)
-
-        mean_models = portion_models.mean(-1)
         mean_model = mean_models.mean(0)
         std_model = mean_models.std(0)
-        mean_human = portion_human.mean(-1)
+        mean_human = mean_humans.mean(0)
+        std_human = mean_humans.std(0)
 
         all_means_model.append(mean_models)
         means_model.append(mean_model)
         stds_model.append(std_model)
+        all_means_human.append(mean_humans)
         means_human.append(mean_human)
+        stds_human.append(std_human)
 
     plt.figure(figsize=(4, 3))
     x = np.arange(len(rois))
     width = 0.35
 
-    plt.bar(x - width/2, means_model, yerr=np.array(stds_model)*1.5, label='Model', capsize=5, color=MODEL_C)
-    plt.bar(x + width/2, means_human, width, label='Human', capsize=5, color=HUMAN_C, alpha=0.7)
+    plt.bar(x - width/2, means_model, width, yerr=np.array(stds_model)*1.5, label='Model', capsize=5, color=MODEL_C)
+    plt.bar(x + width/2, means_human, width, yerr=np.array(stds_human)*1.5, label='Human', capsize=5, color=HUMAN_C)
 
     for i in range(len(rois)):
         plt.scatter([x[i] - width/2]*len(all_means_model[i]), all_means_model[i], color='k')
+        plt.scatter([x[i] + width/2]*len(all_means_human[i]), all_means_human[i], color='k')
 
     plt.xticks(x, rois)
-    plt.ylabel('Mean t-value')
-    plt.title('Localizer t-values by ROI')
+    plt.ylabel('Motion Index')
     plt.legend()
     plt.tight_layout()
     plt.savefig(store_dir / 'localizer_tvals_comparison.svg')
@@ -148,17 +160,19 @@ if __name__ == "__main__":
         t_vals = t_vals_dicts['robert']
         all_t_vals.append(t_vals)
 
-        # # plot the t values for all
-        # from matplotlib import pyplot as plt
-        # pos = layer_positions[0]
-        # plt.scatter(x=pos[:, 0], y=pos[:, 1], c=t_vals, cmap='Spectral', s=1)
-        # plt.colorbar(label='t-value')
-        # plt.title('Localizer t-values (Robert Dataset)')
-        # plt.xlabel('Layer Position X')
-        # plt.ylabel('Layer Position Y')
-        # plt.gca().set_aspect('equal', adjustable='box')
-        # plt.savefig(store_dir / 'localizer_tvals_robert.png')
-        # plt.close()
+        if ckpt_name == MODEL_CKPT:
+            # plot the t values for all
+            from matplotlib import pyplot as plt
+            pos = layer_positions[0]
+            plt.scatter(x=pos[:, 0], y=pos[:, 1], c=t_vals, cmap='Spectral', s=1)
+            plt.colorbar(label='t-value')
+            plt.title('Localizer t-values (Robert Dataset)')
+            plt.xlabel('Layer Position X')
+            plt.ylabel('Layer Position Y')
+            plt.gca().set_aspect('equal', adjustable='box')
+            plt.savefig(store_dir / 'localizer_tvals_robert.png')
+            plt.close()
+            print("Model t vals saved.")
 
     rois = [
         'face',
@@ -166,7 +180,6 @@ if __name__ == "__main__":
         'place',
         'v6',
         'psts',
-        # 'mt',
     ]
 
-    plot_all_rois(all_t_vals, rois, store_dir)
+    plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)

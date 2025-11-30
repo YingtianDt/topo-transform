@@ -1,7 +1,26 @@
 import numpy as np
 
+def fwe(pvals):
+    """
+    Perform FWE correction (Bonferroni) on a list/array of p-values.
+    
+    Parameters
+    ----------
+    pvals : array-like
+        Array of p-values to correct.
+    
+    Returns
+    -------
+    pvals_corrected : np.ndarray
+        FWE-corrected p-values.
+    """
+    pvals = np.array(pvals)
+    n_tests = len(pvals)
+    pvals_corrected = pvals * n_tests
+    pvals_corrected[pvals_corrected > 1] = 1  # cap at 1
+    return pvals_corrected
 
-def false_discovery_control(ps, *, axis=None, method='bh'):
+def fdr(ps, *, axis=None, method='bh'):
     """Adjust p-values to control the false discovery rate.
 
     The false discovery rate (FDR) is the expected proportion of rejected null

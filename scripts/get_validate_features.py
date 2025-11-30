@@ -11,6 +11,7 @@ from data import Kinetics400
 from topo import TopoTransformedVJEPA, TopoTransformedTDANN
 
 from utils import cached
+from validate import load_transformed_model
 
 def _validate_features(ckpt_name):
 
@@ -21,7 +22,6 @@ def _validate_features(ckpt_name):
     ])  
 
     is_swapopt = ckpt_name == "swapopt"
-    is_tdann = ckpt_name == "tdann"
 
     # Load data
     data = Kinetics400(train_transforms=vit_transform, test_transforms=vit_transform, fps=8 if is_swapopt else 12)
@@ -29,20 +29,8 @@ def _validate_features(ckpt_name):
 
     # Load model
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    if is_tdann:
-        model = TopoTransformedTDANN(seed=0)
-    else:
-        model = TopoTransformedVJEPA(layer_indices=[14, 18, 22] if not is_swapopt else [18], seed=42, swapopt=is_swapopt, inf_neighborhood=not is_swapopt)
 
-    # Load checkpoint
-    if not is_swapopt or not is_tdann:
-        checkpoint_path = config.CACHE_DIR / "checkpoints" / ckpt_name
-        if checkpoint_path.exists():
-            ckpt = torch.load(checkpoint_path, map_location=device)
-            model.load_state_dict(ckpt['transformed_model_state_dict'])
-            print(f"Loaded checkpoint from {checkpoint_path}")
-
-    model = model.to(device)
+    model = load_transformed_model(ckpt_name, device=device)[0]
     model.eval()
 
     # Extract features
@@ -56,4 +44,4 @@ def _validate_features(ckpt_name):
     return all_features, positions
 
 def validate_features(ckpt_name: str):
-    return cached(f"validate_features_{ckpt_name}")(_validate_features)(ckpt_name)
+    return (_validate_features)(ckpt_name)

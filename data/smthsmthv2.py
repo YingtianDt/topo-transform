@@ -1,3 +1,4 @@
+from config import ROOT_SSV2
 import os
 import json
 
@@ -11,7 +12,7 @@ from .utils import ListData, video_from_imgs
 from .utils.io import Video
 
 class SmthSmthV2():
-    def __init__(self, root='/mnt/scratch/fkolly/datasets/smthsmthv2', fps=12, duration=2000, width=224, height=224, 
+    def __init__(self, root=ROOT_SSV2, fps=12, duration=2000, width=224, height=224, 
                  train_transforms=None, test_transforms=None, shuffle=False, 
                  static=False, debug=False, subsample_factor=0.1):
         videos_root = root + '/videos'
@@ -82,14 +83,48 @@ class _SmthSmthV2(Dataset):
                 label = self.clean_template(elem['template'])
                 if label not in self.classes:
                     raise ValueError(f'Label {label} not found in classes')
-                item = ListData(elem['id'], label, os.path.join(self.root, elem['id'] + '.webm'))
+                item = ListData(elem['id'], label,
+                                os.path.join(self.root, elem['id'] + '.webm'))
                 json_data.append(item)
 
+        # --------------------------
+        # CLASS-BALANCED SUBSAMPLING
+        # --------------------------
         if self.subsample_factor < 1.0:
-            n_total = len(json_data)
-            n_subsample = max(1, int(n_total * self.subsample_factor))
-            indices = np.random.choice(n_total, n_subsample, replace=False)
-            json_data = [json_data[i] for i in indices]
+            self.num_classes_limit = 50
+            from collections import defaultdict
+
+            # 1. Group by class
+            class_buckets = defaultdict(list)
+            for item in json_data:
+                class_buckets[item.label].append(item)
+
+            # 2. Restrict the number of classes to 50
+            # -------------------------------------------------
+            max_classes = 50
+            all_classes = list(class_buckets.keys())
+            all_classes.sort()
+
+            if len(all_classes) > max_classes:
+                np.random.seed(42)
+                selected_classes = np.random.choice(all_classes, max_classes, replace=False)
+                selected_classes = set(selected_classes)  # for fast lookup
+            else:
+                selected_classes = set(all_classes)
+
+            # Keep only selected classes
+            class_buckets = {cls: items for cls, items in class_buckets.items() if cls in selected_classes}
+
+            # 3. Class-balanced subsampling
+            # -------------------------------------------------
+            balanced = []
+            for cls, items in class_buckets.items():
+                n = len(items)
+                k = max(1, int(np.ceil(n * self.subsample_factor)))
+                idx = np.random.choice(n, k, replace=False)
+                balanced.extend([items[i] for i in idx])
+
+            json_data = balanced
 
         return json_data
     

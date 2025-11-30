@@ -1,3 +1,4 @@
+from config import ROOT_AFD101
 import os
 from typing import Tuple, Optional, List
 
@@ -15,7 +16,7 @@ from .utils.io import Video
 class AFD101:
     def __init__(
         self,
-        root: str = '/mnt/scratch/fkolly/datasets/AFD101',
+        root: str = ROOT_AFD101,
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),

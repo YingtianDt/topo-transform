@@ -4,16 +4,12 @@ import torch
 from torch import nn
 from contextlib import contextmanager
 
-from config import CACHE_DIR
+from config import CACHE_DIR, POSITION_DIR
 from .positions import create_position_dicts, LayerPositions
 from .tissue import _get_tissue_configs_v3, _get_tissue_configs, VJEPA_LAYER_ASSIGNMENTS
 from .loss import *
 from .smoothing import NeuronSmoothing
 from spacetorch.models.positions import LayerPositions
-
-
-POSITION_DIR = CACHE_DIR / "positions"
-POSITION_DIR.mkdir(exist_ok=True, parents=True)
 
 
 class TopoTransformedModel(nn.Module):
@@ -123,8 +119,8 @@ class TopoTransformedModel(nn.Module):
     def forward(self, inputs, do_transform=True):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
-        # if do_transform:
-        #     layer_features = self.transform(layer_features)
+        if do_transform:
+            layer_features = self.transform(layer_features)
         layer_positions = [self.layer_positions[i] for i in self.output_layer_indices]
 
         if self.smoothing:
@@ -165,6 +161,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         self.single_sheet = single_sheet
         self.smoothing = smoothing
         
+        self.swapopt = swapopt
         model = VJEPA() if not swapopt else VJEPASwapopt()
         extractor = VJEPAFeatureExtractor(layer_indices=layer_indices)
         transform = TopoTransform(layer_dims=extractor.layer_dims)
@@ -206,7 +203,10 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                     layer_position = LayerPositions.load(file_path)
                     layer_positions.append(layer_position)
             else:
-                file_path = layer_config_dir / "backbone.blocks.14.attn.npz"
+                if swapopt:
+                    file_path = layer_config_dir / "backbone.blocks.14.attn.npz"
+                else:
+                    file_path = layer_config_dir / "single_sheet.pkl"
                 assert file_path.exists()
                 for _ in extractor.layer_names:
                     layer_position = LayerPositions.load(file_path)
@@ -217,6 +217,9 @@ class TopoTransformedVJEPA(TopoTransformedModel):
     def forward(self, inputs, do_transform=True):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
+
+        if do_transform and not self.swapopt:
+            layer_features = self.transform(layer_features)
 
         if self.single_sheet:
             # concatenate features along width
@@ -229,6 +232,9 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         else:
             layer_features = [self.layer_features[i] for i in self.output_layer_indices]
 
+        if self.smoothing:
+            layer_features, layer_positions = self.smooth(layer_features, layer_positions)
+
         return layer_features, layer_positions
     
 
@@ -239,7 +245,7 @@ class TopoTransformedTDANN(TopoTransformedModel):
         
         name = 'tdann_4.1_single'
         
-        model = TDANN(seed=seed)
+        model = TDANN()
         extractor = TDANNFeatureExtractor()
 
         layer_config_dir = (POSITION_DIR / name)

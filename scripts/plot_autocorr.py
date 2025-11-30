@@ -4,9 +4,9 @@ import numpy as np
 import os
 from matplotlib.colors import LinearSegmentedColormap
 
-from get_validate_features import validate_features
+from .get_validate_features import validate_features
+from .common import MODEL_CKPT
 from config import PLOTS_DIR
-from common import MODEL_CKPT
 
 
 # Create custom colormap from gray -> white -> red
