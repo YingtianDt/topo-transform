@@ -243,8 +243,6 @@ class TopoTransformedTDANN(TopoTransformedModel):
         from models import TDANN
         from .features import TDANNFeatureExtractor
         
-        name = 'tdann_4.1_single'
-        
         model = TDANN()
         extractor = TDANNFeatureExtractor()
 
@@ -265,6 +263,9 @@ class TopoTransformedTDANN(TopoTransformedModel):
         with torch.no_grad():
             layer_features = self.extractor.extract_features(self.model, inputs)
 
+        if do_transform:
+            pass
+
         # concatenate features along width
         concatenated_features = []
         for feat in layer_features:
@@ -272,5 +273,8 @@ class TopoTransformedTDANN(TopoTransformedModel):
         concatenated_features = torch.cat(concatenated_features, dim=-1)
         layer_features = [concatenated_features]
         layer_positions = self.layer_positions
+
+        if self.smoothing:
+            layer_features, layer_positions = self.smooth(layer_features, layer_positions)
 
         return layer_features, layer_positions
