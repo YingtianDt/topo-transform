@@ -9,7 +9,6 @@ from .psts import localize_psts
 from .pitcher import localize_pitcher, localize_pitcher_human
 from .robert import localize_robert
 
-FLOC_DATASETS = ['vpnl', 'kanwisher', 'motion', 'pitzalis', 'biomotion', 'pitcher', 'temporal', 'robert']
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
 
 def validate_floc(

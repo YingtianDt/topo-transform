@@ -16,7 +16,7 @@ from .utils import t_test
 
 ROBERT = '/mnt/scratch/ytang/datasets/robert2023'
 
-def Robert_category_dataset(data_dir=ROBERT, transform=None, frames_per_video=36, video_fps=12):
+def Robert_category_dataset(data_dir=ROBERT):
     """Create a category dataset for the Robert dataset."""
     file_infos = defaultdict(list)
     for fname in os.listdir(data_dir):
@@ -33,7 +33,7 @@ def localize_robert(model, transform,
     categories = ["dynamic", "static"]
 
     # Group files by category
-    datasets = Robert_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
+    datasets = Robert_category_dataset()
     datasets = {cat: datasets[cat] for cat in categories}
     n_categories = len(categories)
     t_vals_dict, p_vals_dict = t_test(

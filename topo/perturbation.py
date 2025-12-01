@@ -16,12 +16,17 @@ def gaussian_spread(mean, cov, locations):
 
 
 class LayerPerturbation:
+    layer_transforms = {}
     def __init__(self, changes, change_function=operator.mul):
         self._changes = changes
         self._change_function = change_function
 
-    def __call__(self, layer_module, input, result):
+    def __call__(self, layer_module, input, output):
         changes = self._changes
+        transform = getattr(layer_module, '_transform')
+
+        result = transform(output)
+
         if len(changes.shape) < len(result.shape[1:]):
             changes = changes.reshape(result.shape[1:])
         
@@ -31,21 +36,31 @@ class LayerPerturbation:
         for i, change in enumerate(changes):
             if len(result.shape) == 4:  # conv: [B, C, H, W]
                 result[:, i, :, :] = self._change_function(result[:, i, :, :], change)
-            elif len(result.shape) == 2:  # fc: [B, C]
-                result[:, i] = self._change_function(result[:, i], change)
+            elif len(result.shape) == 5:  # [B, T, C, H, W]
+                result[:, :, i, :, :] = self._change_function(result[:, :, i, :, :], change)
             else:
                 raise ValueError(f"Unknown shape {result.shape}")
-        return result
+
+        stimulated_output = transform.inverse(result)
+        
+        return stimulated_output
 
 
 class TopoModelPerturbation:
     def __init__(self, topo_model, identifier_suffix_max_len=3):
         assert hasattr(topo_model.model, 'register_forward_hook'), 'PyTorch model required'
-        self.topo_model = topo_model
+        self.topo_model = self.bind_transforms(topo_model)
         self._base_identifier = topo_model.name
         self._hooks = []
         self._max_len = identifier_suffix_max_len
         self._logger = logging.getLogger(self.__class__.__name__)
+
+    def bind_transforms(self, topo_model):
+        transforms = topo_model.transform.transforms
+        layers = [self._get_layer_module(name) for name in topo_model.layer_names]
+        for layer, transform in zip(layers, transforms):
+            layer._transform = transform
+        return topo_model
 
     def perturb(self, location, perturbation_params, layer_idx=None):
         """Apply perturbation to specified layer at given location.

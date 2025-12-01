@@ -17,10 +17,9 @@ FLOW = '/mnt/scratch/ytang/datasets/flow_fields'
 
 
 class MovingDataset(CategoryDataset):
-    def __init__(self, *args, mode='moving', seed=42, **kwargs):
+    def __init__(self, *args, mode='moving', **kwargs):
         super().__init__(*args, **kwargs)
         self.mode = mode
-        self.seed = seed
     
     def __getitem__(self, idx):
         # Get item from base dataset (always in normal ordering)
@@ -31,8 +30,8 @@ class MovingDataset(CategoryDataset):
         
         # Apply ordering transformation
         if self.mode == 'static':
-            # repeat the first, middle, and the last frame, one for each third of the video
-            data = data[0:1].repeat(num_frames, 1, 1, 1)
+            # repeat the middle frame for the entire video
+            data = data[num_frames // 2:num_frames // 2 + 1].repeat(num_frames, 1, 1, 1)
 
         return data, label
 
@@ -47,16 +46,15 @@ def Pitzalis_category_dataset(data_dir=FLOW, transform=None, frames_per_video=24
                 if fname.endswith(('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')):
                     file_infos[category].append((os.path.join(category_dir, fname), category))
                     if category == "coherent":
-                        category = "static"
-                        file_infos[category].append((os.path.join(category_dir, fname), category))
+                        file_infos["static"].append((os.path.join(category_dir, fname), "static"))
 
     datasets = {
-        "coherent": MovingDataset(file_infos['coherent']),
-        "scrambled": MovingDataset(file_infos['scrambled']),
-        "static": MovingDataset(file_infos['static']),
+        "coherent": MovingDataset(file_infos['coherent'], mode='moving', transform=transform, frames_per_video=frames_per_video, video_fps=video_fps),
+        "scrambled": MovingDataset(file_infos['scrambled'], mode='moving', transform=transform, frames_per_video=frames_per_video, video_fps=video_fps),
+        "static": MovingDataset(file_infos['static'], mode='static', transform=transform, frames_per_video=frames_per_video, video_fps=video_fps),
     }
 
-    return file_infos
+    return datasets
 
 def localize_v6(model, transform, 
                 batch_size=32, device='cuda', downsampler=None,

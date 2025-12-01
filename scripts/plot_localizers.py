@@ -30,7 +30,7 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
         "Bodies_moving": ("dynamic-body", (0.80, 1.00, 0.80)),
         "Scenes_moving": ("dynamic-place", (1.00, 0.90, 0.70)),
         "V6": ("V6", (0.0, 0.85, 0.95)),
-        "MT": ("MT", (0.95, 0.20, 0.70)),
+        "MT-Huk": ("MT", (0.95, 0.20, 0.70)),
         "pSTS": ("pSTS", (0.85, 0.85, 0.0)),
     }
 
@@ -41,7 +41,7 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
         "face": ["Faces_static_localizer", "Faces_moving_localizer"],
         "body": ["Bodies_static_localizer", "Bodies_moving_localizer"],
         "place": ["Scenes_static_localizer", "Scenes_moving_localizer"],
-        "motion": ["V6", "pSTS"],
+        "motion": ["V6", "pSTS", "MT-Huk"],
         "categorical": [
             "Faces_static_localizer", "Bodies_static_localizer", "Scenes_static_localizer",
             "Faces_moving_localizer", "Bodies_moving_localizer", "Scenes_moving_localizer",
@@ -77,6 +77,9 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
                     pos = pos.cpu().numpy()
                 
                 # Filter by p-value threshold
+                if roi_name in ["V6", "MT-Huk"]:
+                    # For V6 and MT, p-values were scaled up by 1000x
+                    p_vals = p_vals * 1000.0
                 mask = (p_vals.flatten() < p_threshold) & (t_vals.flatten() > t_threshold)
                 pos_filtered = pos[mask]
                 
@@ -124,6 +127,7 @@ if __name__ == "__main__":
         "Scenes_moving_localizer",
         "V6",
         "pSTS",
+        "MT-Huk"
     ]
 
     t_vals_dict = {cat: t_vals_dict[cat] for cat in categories_of_interest if cat in t_vals_dict}

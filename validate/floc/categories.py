@@ -18,7 +18,7 @@ VPNL = '/mnt/scratch/ytang/datasets/fLoc_stimuli'
 KANWISHER = '/mnt/scratch/ytang/datasets/lahner/stimulus_set/stimuli/localizer'
 
 
-def VPNL_category_dataset(data_dir=VPNL, transform=None, frames_per_video=24, video_fps=12):
+def VPNL_category_dataset(data_dir=VPNL, frames_per_video=24, video_fps=12):
     """Create a category dataset for the VPNL dataset."""
     datasets = defaultdict(list)
     for fname in os.listdir(data_dir):
@@ -41,7 +41,7 @@ def VPNL_category_dataset(data_dir=VPNL, transform=None, frames_per_video=24, vi
     return datasets
 
 
-def KANWISHER_category_dataset(data_dir=KANWISHER, transform=None, frames_per_video=24, video_fps=12):
+def KANWISHER_category_dataset(data_dir=KANWISHER, frames_per_video=24, video_fps=12):
     """Create a category dataset for the Kanwisher dataset."""
     datasets = defaultdict(list)
     for category in os.listdir(data_dir):
@@ -107,9 +107,9 @@ def functional_localization_one_vs_rest(model, transform, datasets,
 def localize_categories(model, transform, dataset_name, frames_per_video=24, video_fps=12, 
                         batch_size=32, device='cuda', downsampler=None, ret_pvals=False):
     if dataset_name == "vpnl":
-        datasets = VPNL_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
+        datasets = VPNL_category_dataset(frames_per_video=frames_per_video, video_fps=video_fps)
     elif dataset_name == "kanwisher":
-        datasets = KANWISHER_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
+        datasets = KANWISHER_category_dataset(frames_per_video=frames_per_video, video_fps=video_fps)
     else:
         raise ValueError(f"Unknown dataset_name: {dataset_name}")
 

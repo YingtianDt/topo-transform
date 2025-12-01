@@ -8,7 +8,7 @@ from .common import *
 
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
-LOCALIZER_RERUN = False
+LOCALIZER_RERUN = True
 
 def _localizers(
         checkpoint_name, 

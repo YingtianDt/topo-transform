@@ -17,7 +17,7 @@ from .utils import t_test
 BIOLOGICAL_MOTION = '/mnt/scratch/ytang/datasets/biological-motion'
 
 
-def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION, transform=None, frames_per_video=24, video_fps=12):
+def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION):
     """Create a category dataset for the Biological Motion dataset (Vanrie 2004)."""
     file_infos = defaultdict(list)
     fnames = None
@@ -45,7 +45,7 @@ def localize_psts(model, transform,
     categories = ["normal_dynamic", "scrambled_dynamic", "scrambled_static"]
 
     # Group files by category
-    datasets = biomotion_category_dataset(transform=transform, frames_per_video=frames_per_video, video_fps=video_fps)
+    datasets = biomotion_category_dataset()
     datasets = {cat: datasets[cat] for cat in categories}
     n_categories = len(categories)
     t_vals_dict, p_vals_dict = t_test(
