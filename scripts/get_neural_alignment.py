@@ -52,7 +52,7 @@ def _val_selection(decoding_scores):
 def _neural_alignment(ckpt_name, num_splits):
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = load_transformed_model(checkpoint_name=ckpt_name, device=device)
+    model, _ = load_transformed_model(checkpoint_name=ckpt_name, device=device)
     model.eval()
 
     batch_size = 16
@@ -68,7 +68,7 @@ def _neural_alignment(ckpt_name, num_splits):
     for split in range(num_splits):
         print(f"=== Split {split+1}/{num_splits} ===")
         seed = 42 + split   
-        trainset, valset, testset, ceiling = get_compilation(vit_transform, ratios=ratios, return_full_ceiling=True, seed=seed)
+        trainset, valset, testset, ceiling = get_compilation(vit_transform, ratios=ratios, return_ceiling=True, seed=seed)
 
         ceil = ceiling[..., mask].mean()
         print(f"Ceiling: {ceil}")

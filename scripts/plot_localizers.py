@@ -9,6 +9,7 @@ from matplotlib.colors import Normalize
 
 from .common import *
 from .get_localizers import localizers
+from validate.floc.utils.cluster import visualize_patches
 
 def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
                   prefix='', suffix='', p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0, dpi=250):
@@ -40,7 +41,7 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
         "face": ["Faces_static_localizer", "Faces_moving_localizer"],
         "body": ["Bodies_static_localizer", "Bodies_moving_localizer"],
         "place": ["Scenes_static_localizer", "Scenes_moving_localizer"],
-        "motion": ["V6", "MT", "pSTS"],
+        "motion": ["V6", "pSTS"],
         "categorical": [
             "Faces_static_localizer", "Bodies_static_localizer", "Scenes_static_localizer",
             "Faces_moving_localizer", "Bodies_moving_localizer", "Scenes_moving_localizer",
@@ -109,7 +110,32 @@ def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_
 if __name__ == "__main__":
     ckpt_name = MODEL_CKPT
     store_dir = PLOTS_DIR / 'localizers'
+    patches_dir = store_dir / 'patches'
     store_dir.mkdir(parents=True, exist_ok=True)
+    patches_dir.mkdir(parents=True, exist_ok=True)
 
     t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
     plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir)
+
+
+    categories_of_interest = [
+        "Faces_moving_localizer",
+        "Bodies_moving_localizer",
+        "Scenes_moving_localizer",
+        "V6",
+        "pSTS",
+    ]
+
+    t_vals_dict = {cat: t_vals_dict[cat] for cat in categories_of_interest if cat in t_vals_dict}
+    p_vals_dict = {cat: p_vals_dict[cat] for cat in categories_of_interest if cat in p_vals_dict}
+
+    visualize_patches(
+        t_vals_dict=t_vals_dict,
+        p_vals_dict=p_vals_dict,
+        layer_positions=layer_positions,
+        viz_dir=str(patches_dir),
+        prefix='patches_',
+        suffix='',
+        t_threshold=0,
+        p_threshold=LOCALIZER_P_THRESHOLD,
+    )

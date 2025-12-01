@@ -28,9 +28,10 @@ def crop_config_id(ckpt_name):
 
 
 if __name__ == '__main__':
-    model_name = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_smthsmthv2_lr1e-4_bs32.pt"
+    model_name = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd42.pt"
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model, epoch = load_transformed_model(checkpoint_name=model_name, device=device)
+    breakpoint()
 
     config_id = crop_config_id(model_name)
 

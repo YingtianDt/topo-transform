@@ -133,6 +133,13 @@ class TDANNFeatureExtractor(LayerFeatureExtractor):
         return 1
 
     def extract_features(self, model, inputs):
-        features = super().extract_features(model, inputs)
+        temporal = inputs.ndim == 5
+        if temporal:
+            # process frames individually
+            b, t, c, h, w = inputs.shape
+            inputs = inputs.view(b * t, c, h, w)
+            features = super().extract_features(model, inputs)
+            features = [feat.view(b, t, *feat.shape[1:]) for feat in features]
+        else:
+            features = super().extract_features(model, inputs)
         return features
-

@@ -126,11 +126,12 @@ if __name__ == '__main__':
 
     model_stats, human_stats = plot_smoothness_comparison(MODEL_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0)
     tdann_stats, human_stats = plot_smoothness_comparison(TDANN_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
+    unoptimized_stats, human_stats = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
     
     for stats, label, color in zip(
-        [human_stats, model_stats, tdann_stats], 
-        ['HUMAN', 'MODEL', 'TDANN'],
-        [HUMAN_C, MODEL_C, DEFAULT_C]
+        [human_stats, model_stats, tdann_stats, unoptimized_stats], 
+        ['HUMAN', 'MODEL', 'TDANN', 'UNOPTIMIZED'],
+        [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C]
     ):
         mean_smoothness, std_smoothness = stats
         plt.bar(label, mean_smoothness, yerr=std_smoothness, capsize=10, color=color)
@@ -138,3 +139,5 @@ if __name__ == '__main__':
     plt.title(f'Smoothness Comparison for Category: {category}')
     plt.savefig(PLOTS_DIR / f'smoothness_comparison_bar_{category}.svg', dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
+
+    print(f"Saved smoothness comparison bar plot to {PLOTS_DIR / f'smoothness_comparison_bar_{category}.svg'}")

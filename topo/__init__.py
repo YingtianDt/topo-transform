@@ -244,12 +244,13 @@ class TopoTransformedTDANN(TopoTransformedModel):
         from models import TDANN
         from .features import TDANNFeatureExtractor
         
-        name = 'tdann_4.1_single'
         
         model = TDANN()
         extractor = TDANNFeatureExtractor()
 
+        name = 'tdann_4.1_single'
         layer_config_dir = (POSITION_DIR / name)
+        self.single_sheet = True
         print(layer_config_dir)
 
         print("Loading layer positions...")

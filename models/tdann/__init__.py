@@ -27,12 +27,4 @@ class TDANN(nn.Module):
         print(("Pretrained weights found at {} and loaded with msg: {}".format(ckpt_path, msg)))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if len(x.shape) == 5:
-            # process frames individually
-            b, t, c, h, w = x.shape
-            x = x.view(b * t, c, h, w)
-            x = self.model(x)
-            x = x.view(b, t, -1)
-            return x
-        else:
-            return self.model(x)
+        return self.model(x)

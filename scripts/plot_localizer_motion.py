@@ -89,6 +89,9 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
 
         mean_models = np.array([(t_vals>0).mean() for t_vals in t_vals_models])  # shape: (n_checkpoints)
         mean_humans = np.array([(t_vals[mask_human]>0).mean() for t_vals in t_vals_robert]) # shape: (n_individuals)
+        
+        # sometimes model have no units in the ROI
+        mean_models = np.nan_to_num(mean_models, nan=0.0)
 
         mean_model = mean_models.mean(0)
         std_model = mean_models.std(0)
@@ -135,6 +138,14 @@ if __name__ == "__main__":
     store_dir = PLOTS_DIR
     store_dir.mkdir(parents=True, exist_ok=True)
 
+    rois = [
+        'face',
+        'body',
+        'place',
+        'v6',
+        'psts',
+    ]
+
     all_t_vals = []
     for ckpt_name in MODEL_CKPTS:
         print(f"Processing checkpoint: {ckpt_name}")
@@ -156,14 +167,6 @@ if __name__ == "__main__":
             plt.close()
             print("Model t vals saved.")
 
-    rois = [
-        'face',
-        'body',
-        'place',
-        'v6',
-        'psts',
-    ]
-
     model_mape = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
 
 
@@ -176,10 +179,22 @@ if __name__ == "__main__":
 
     tdann_mape = plot_all_rois(all_t_vals, TDANN_CKPTS, rois, store_dir=None)
 
+
+    all_t_vals = []
+    for ckpt_name in UNOPTIMIZED_CKPTS:
+        print(f"Processing checkpoint: {ckpt_name}")
+        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
+        t_vals = t_vals_dicts['robert']
+        all_t_vals.append(t_vals)
+
+    unoptimized_mape = plot_all_rois(all_t_vals, UNOPTIMIZED_CKPTS, rois, store_dir=None)
+
     # plot bar comparison
     plt.figure(figsize=(3, 3))
-    plt.bar(['Model', 'TDANN'], [model_mape, tdann_mape], color=[MODEL_C, DEFAULT_C])
+    plt.bar(['Model', 'TDANN', 'Unoptimized'], [model_mape, tdann_mape, unoptimized_mape], color=[MODEL_C, DEFAULT_C, DEFAULT_C])
     plt.ylabel('Mean Absolute Percentage Error (MAPE)')
     plt.title('Localizer Motion Index MAPE Comparison')
     plt.savefig(store_dir / 'localizer_motion_mape_comparison.svg')
     plt.close()
+
+    print(f"Saved localizer motion MAPE comparison plot to {store_dir / 'localizer_motion_mape_comparison.svg'}")
