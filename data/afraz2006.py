@@ -104,7 +104,7 @@ class _AFRAZ2006(VisionDataset):
             return img_path, label, self.dataset_name
         
         frames_per_video = int(self.fps * (self.duration / 1000))
-        img = Image.open(img_path).convert('RGB')
+        img = torch.from_numpy(np.array(Image.open(img_path).convert('RGB'))).permute(2,0,1)
         if self.transform:
             img = self.transform(img)
         data = img.unsqueeze(0).repeat(frames_per_video, 1, 1, 1)

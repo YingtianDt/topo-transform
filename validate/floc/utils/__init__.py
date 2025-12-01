@@ -60,7 +60,7 @@ class CategoryDataset(Dataset):
                 fps=self.video_fps
             )
         else:
-            img = Image.open(file_path).convert('RGB')
+            img = torch.from_numpy(np.array(Image.open(file_path).convert('RGB'))).permute(2,0,1)
             if self.transform:
                 img = self.transform(img)
             data = img.unsqueeze(0).repeat(self.frames_per_video, 1, 1, 1)
@@ -187,7 +187,7 @@ def video_transform(path, time_start, time_end, torch_transforms, fps=12):
     # Extract frames in bounds
     if start_idx < end_idx:
         frame_indices = list(range(start_idx, end_idx))
-        frames = safe_get_frames(decoder, frame_indices)  # [num_frames, H, W, C]
+        frames = safe_get_frames(decoder, frame_indices)  # [num_frames, C, H, W]
     else:
         frames = torch.empty((0, 0, 0, 0))
 
