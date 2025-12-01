@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
-from .common import MODEL_CKPT
-from .get_localizers import localizers
+from common import MODEL_CKPT
+from get_localizers import localizers
 
 def plot_all_rois(p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
                   prefix='', suffix='', p_threshold=0.001, dpi=250):

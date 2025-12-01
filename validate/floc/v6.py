@@ -13,7 +13,7 @@ from scipy import stats
 from utils import cached
 from .utils import t_test, CategoryDataset
 
-FLOW = '/mnt/scratch/ytang/datasets/flow_fields'
+FLOW = '/ccn2/u/ynshah/spacetimetorch/datasets/flow_fields'
 
 
 class MovingDataset(CategoryDataset):

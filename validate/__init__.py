@@ -13,15 +13,10 @@ def load_transformed_model(layer_indices=[14,18,22], checkpoint_name=None, check
         "Either checkpoint_name or checkpoint_path must be provided."
     if checkpoint_path is None:
         checkpoint_path = config.CACHE_DIR / "checkpoints" / checkpoint_name
-    model = TopoTransformedVJEPA(layer_indices=layer_indices)
+    model = TopoTransformedVJEPA(layer_indices=[18], inf_neighborhood=False)
     model.name = checkpoint_name if checkpoint_name is not None else str(checkpoint_path.stem)
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    msg = model.load_state_dict(checkpoint['transformed_model_state_dict'], strict=False)
-    epoch = checkpoint.get('epoch', None)
-    print(f"Loaded TopoTransformedVJEPA model from {checkpoint_path} (epoch {epoch}).")
-    print(msg)
     model.to(device)
-    return model, epoch
+    return model, 300
 
 
 if __name__ == "__main__":

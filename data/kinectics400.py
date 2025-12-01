@@ -13,7 +13,7 @@ from .utils.io import Video
 class Kinetics400:
     def __init__(
         self,
-        root: str = '/data2/ynshah/Kinetics400/k400',
+        root: str = '/data/ynshah/Kinetics400/k400',
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),

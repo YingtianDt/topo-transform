@@ -13,7 +13,7 @@ from .utils.transforms import Transforms, shake
 class ImageNetVid:
     def __init__(
         self,
-        root: str = '/mnt/scratch/akgokce/datasets/imagenet',
+        root: str = '/data/ynshah/imagenet',
         fps: int = 12,
         duration: int = 2000,
         size: Tuple[int, int] = (224, 224),

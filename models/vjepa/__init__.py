@@ -8,7 +8,7 @@ from .src.utils.pretrained import load_checkpoint
 from .src.vision_transformer import vit_large, vit_huge
 from .src.utils.remap import VJEPA_REVERSE_MAPPING
 
-PRETRAINED_DIR = os.environ.get('PRETRAINED_DIR', "/data2/ynshah/tdann-transform/cache/checkpoints")
+PRETRAINED_DIR = os.environ.get('PRETRAINED_DIR', "/ccn2/u/ynshah/tdann-transform/cache/checkpoints")
 
 class VJEPA(nn.Module):
     def __init__(self, pretrain_size='large') -> None:
@@ -50,7 +50,7 @@ class VJEPASwapopt(nn.Module):
         
         if pretrain_size == 'large':
             vit = vit_large
-            backbone_path = f'{PRETRAINED_DIR}/vitl16_jepa_videomix2m.pt'
+            backbone_path = f'/ccn2/u/ynshah/spacetimetorch/checkpoints/vitl16_jepa_videomix2m/vitl16_jepa_videomix2m.pt'
             head_path = f'{PRETRAINED_DIR}/k400-probe.pth.tar'
             input_dim = 1024
             head_dim = 400

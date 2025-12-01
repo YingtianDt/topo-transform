@@ -24,7 +24,7 @@ def _validate_features(ckpt_name):
     is_tdann = ckpt_name == "tdann"
 
     # Load data
-    data = Kinetics400(train_transforms=vit_transform, test_transforms=vit_transform, fps=8 if is_swapopt else 12)
+    data = Kinetics400(train_transforms=vit_transform, test_transforms=vit_transform, fps=12)
     val_loader = DataLoader(data.valset, batch_size=32, shuffle=False, num_workers=4)
 
     # Load model

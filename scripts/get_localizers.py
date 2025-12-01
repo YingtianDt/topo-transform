@@ -5,7 +5,7 @@ from validate import load_transformed_model
 from validate.fdr import false_discovery_control
 
 
-FLOC_DATASETS = ['kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
+FLOC_DATASETS = ['kanwisher', 'pitzalis', 'biomotion', 'pitcher']
 
 def _localizers(
         checkpoint_name, 
@@ -21,6 +21,9 @@ def _localizers(
     model, epoch = load_transformed_model(checkpoint_name=checkpoint_name, device=device)
     model.eval()
     transform = vit_transform
+
+    is_swapopt = "swapopt" in checkpoint_name
+    frames_per_video = 24 if not is_swapopt else 16
 
     with model.smoothing_enabled(
             fwhm_mm=fwhm_mm, 

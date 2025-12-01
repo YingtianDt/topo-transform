@@ -18,7 +18,7 @@ from git.repo import Repo
 
 
 # try to find the base filesystem
-_base_fs = Path("/data2/ynshah/tdann-transform")
+_base_fs = Path("/ccn2/u/ynshah/tdann-transform")
 assert _base_fs.exists(), f"could not reach base filesystem {_base_fs}"
 
 

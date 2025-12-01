@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 HOME_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+print(HOME_DIR)
 
 # Environment setup
 if (env_path := HOME_DIR / ".env").exists():
@@ -26,7 +27,7 @@ os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["RESULTCACHING_DISABLE"] = '0'
 
 DEBUG = True
-RERUN = False
+RERUN = True
 
 if DEBUG:
     print("*" * 100)
