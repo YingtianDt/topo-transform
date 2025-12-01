@@ -44,6 +44,8 @@ ROOT_KINETICS400 = '/mnt/scratch/fkolly/datasets/kinetics-dataset/k400'
 ROOT_IMAGENETVID = '/mnt/scratch/akgokce/datasets/imagenet'
 ROOT_AFD101 = '/mnt/scratch/fkolly/datasets/AFD101'
 ROOT_SSV2 = '/mnt/scratch/fkolly/datasets/smthsmthv2'
+ROOT_AFRAZ2006 = '/mnt/scratch/ytang/datasets/afraz2006'
+
 PRETRAINED_DIR = "/mnt/scratch/fkolly/brainmo/pretrained"
 POSITION_DIR = CACHE_DIR / "positions"
 POSITION_DIR.mkdir(exist_ok=True, parents=True)

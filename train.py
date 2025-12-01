@@ -12,7 +12,7 @@ import wandb
 from torch.utils.data import DataLoader
 import numpy as np
 
-from models import VJEPA, UniFormer, MViTV1
+from models import VJEPA, UniFormer, MViTV1, vit_transform
 from topo import TopoTransformedVJEPA, SpatialCorrelationLoss, GlobalSpatialCorrelationLoss
 from data import SmthSmthV2, Kinetics400, ImageNetVid
 from validate import load_transformed_model, validate_autocorr, validate_floc
@@ -26,12 +26,6 @@ Notes on training:
 
 if hasattr(config, 'WANDB_API_KEY'):
     os.environ["WANDB_API_KEY"] = config.WANDB_API_KEY
-
-vit_transform = transforms.Compose([
-    transforms.Resize((224, 224)), 
-    transforms.Lambda(lambda img: img/255.0),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
 
 def get_config_id(model_name, data_name, lr, batch_size=32, seed=42, prefix=""):
     """Generate unique config identifier"""

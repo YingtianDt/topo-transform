@@ -61,7 +61,6 @@ class CategoryDataset(Dataset):
             )
         else:
             img = Image.open(file_path).convert('RGB')
-            img = transforms.ToTensor()(img)
             if self.transform:
                 img = self.transform(img)
             data = img.unsqueeze(0).repeat(self.frames_per_video, 1, 1, 1)
@@ -225,8 +224,8 @@ def video_transform(path, time_start, time_end, torch_transforms, fps=12):
             frames = frames[indices]
 
     if frames.numel() > 0:
-        # Normalize and apply transforms
-        frames = torch_transforms(frames / 255.0)
+        # apply transforms
+        frames = torch_transforms(frames)
 
     return frames
 
