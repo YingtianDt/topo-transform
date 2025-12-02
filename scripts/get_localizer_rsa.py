@@ -35,13 +35,13 @@ class Extractor:
         return [lf.mean(dim=1) for lf in layer_features]  # average over time dimension
 
 
-def _localizer_rsa(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, t_percentage=1, t_threshold=None):
+def _localizer_rsa(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=LOCALIZER_T_THRESHOLD):
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model, epoch = load_transformed_model(checkpoint_name=ckpt_name, device=device)
     model.eval()
 
-    masks_model = get_localizer_model(rois, ckpt_name, t_perc=t_percentage, t_thres=t_threshold, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+    masks_model = get_localizer_model(rois, ckpt_name, p_thres=p_threshold, t_thres=t_threshold, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
     masks_human = get_localizer_human(rois)
 
     batch_size = 16

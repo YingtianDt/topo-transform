@@ -75,7 +75,7 @@ class TensorPipeline:
 
     def predict(self, X):
         for name, step in self.steps[:-1]:
-            X = step.transform(X)
+            X, _ = step.transform(X, None)
         name, step = self.steps[-1]
         return step.predict(X)
 

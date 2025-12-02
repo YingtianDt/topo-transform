@@ -5,6 +5,7 @@ import pandas as pd
 from PIL import Image
 import torch
 from torchvision import transforms
+import numpy as np
 
 from torchvision.datasets.utils import list_dir
 from torchvision.datasets.folder import make_dataset
@@ -105,8 +106,7 @@ class _AFRAZ2006(VisionDataset):
         
         frames_per_video = int(self.fps * (self.duration / 1000))
         img = torch.from_numpy(np.array(Image.open(img_path).convert('RGB'))).permute(2,0,1)
-        if self.transform:
-            img = self.transform(img)
+        img = self.transforms(img)
         data = img.unsqueeze(0).repeat(frames_per_video, 1, 1, 1)
         
         return data, label, self.dataset_name

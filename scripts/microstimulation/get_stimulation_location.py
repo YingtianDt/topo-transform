@@ -5,7 +5,7 @@ from validate.floc.utils.cluster import find_patches
 from validate import load_transformed_model
 from validate.correction import fdr, fwe
 
-from .common import *
+from scripts.common import *
 
 
 def get_patches(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=0, fwhm_mm=2.0, resolution_mm=1.0):
@@ -64,6 +64,6 @@ def get_stimulation_location(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0):
         largest_patch = max(patch, key=lambda x: x['size'])
         coords = largest_patch['coordinates']  # (N, 2)
         center = coords.mean(axis=0)  # (x, y)
-        locations.append((int(center[0]), int(center[1])))
+        locations.append(center)
     return locations
     

@@ -59,7 +59,7 @@ def load_robert_tvals():
 
     return t_vals
 
-def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0):
+def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=LOCALIZER_T_THRESHOLD):
     if store_dir is not None:
         os.makedirs(store_dir, exist_ok=True)
 
@@ -105,12 +105,12 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
         means_human.append(mean_human)
         stds_human.append(std_human)
 
-    # compute MAPE between model and human
-    mape = np.mean(np.abs(np.array(means_model) - np.array(means_human)) / np.array(means_human))
-    print(f"Mean Absolute Percentage Error (MAPE) between model and human: {mape:.4f}")
+    # compute mae between model and human
+    mae = np.mean(np.abs(np.array(means_model) - np.array(means_human)))
+    print(f"Mean Absolute Error (mae) between model and human: {mae:.4f}")
 
     if store_dir is None:
-        return mape
+        return mae
 
     plt.figure(figsize=(4, 3))
     x = np.arange(len(rois))
@@ -132,7 +132,7 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
 
     print(f"Saved localizer t-values comparison plot to {store_dir / 'localizer_tvals_comparison.svg'}")
 
-    return mape
+    return mae
 
 if __name__ == "__main__":
     store_dir = PLOTS_DIR
@@ -167,8 +167,7 @@ if __name__ == "__main__":
             plt.close()
             print("Model t vals saved.")
 
-    model_mape = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
-
+    model_mae = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
 
     all_t_vals = []
     for ckpt_name in TDANN_CKPTS:
@@ -177,8 +176,7 @@ if __name__ == "__main__":
         t_vals = t_vals_dicts['robert']
         all_t_vals.append(t_vals)
 
-    tdann_mape = plot_all_rois(all_t_vals, TDANN_CKPTS, rois, store_dir=None)
-
+    tdann_mae = plot_all_rois(all_t_vals, TDANN_CKPTS, rois, store_dir=None)
 
     all_t_vals = []
     for ckpt_name in UNOPTIMIZED_CKPTS:
@@ -187,14 +185,15 @@ if __name__ == "__main__":
         t_vals = t_vals_dicts['robert']
         all_t_vals.append(t_vals)
 
-    unoptimized_mape = plot_all_rois(all_t_vals, UNOPTIMIZED_CKPTS, rois, store_dir=None)
+    unoptimized_mae = plot_all_rois(all_t_vals, UNOPTIMIZED_CKPTS, rois, store_dir=None)
 
     # plot bar comparison
     plt.figure(figsize=(3, 3))
-    plt.bar(['Model', 'TDANN', 'Unoptimized'], [model_mape, tdann_mape, unoptimized_mape], color=[MODEL_C, DEFAULT_C, DEFAULT_C])
-    plt.ylabel('Mean Absolute Percentage Error (MAPE)')
-    plt.title('Localizer Motion Index MAPE Comparison')
-    plt.savefig(store_dir / 'localizer_motion_mape_comparison.svg')
+    plt.bar(['Model', 'TDANN', 'Unoptimized'], [model_mae, tdann_mae, unoptimized_mae], color=[MODEL_C, DEFAULT_C, DEFAULT_C])
+    plt.ylabel('Mean Absolute Error (mae)')
+    plt.title('Localizer Motion Index mae Comparison')
+    plt.tight_layout()
+    plt.savefig(store_dir / 'localizer_motion_mae_comparison.svg')
     plt.close()
 
-    print(f"Saved localizer motion MAPE comparison plot to {store_dir / 'localizer_motion_mape_comparison.svg'}")
+    print(f"Saved localizer motion mae comparison plot to {store_dir / 'localizer_motion_mae_comparison.svg'}")

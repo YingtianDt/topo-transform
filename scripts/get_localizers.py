@@ -8,7 +8,7 @@ from .common import *
 
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
-LOCALIZER_RERUN = True
+LOCALIZER_RERUN = False
 
 def _localizers(
         checkpoint_name, 
@@ -163,7 +163,7 @@ def localizers(
     return t_vals_dicts, p_vals_dicts, layer_positions
 
 
-def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=0, fwhm_mm=2.0, resolution_mm=1.0):
+def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=LOCALIZER_T_THRESHOLD, fwhm_mm=2.0, resolution_mm=1.0):
     t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
     # merge p_vals_dicts

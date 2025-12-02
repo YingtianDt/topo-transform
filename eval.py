@@ -5,13 +5,7 @@ import torch
 from torchvision import transforms
 
 from validate import *
-
-
-vit_transform = transforms.Compose([
-    transforms.Resize((224, 224)), 
-    transforms.Lambda(lambda img: img/255.0),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+from models import vit_transform
 
 def crop_config_id(ckpt_name):
     ckpt_name = ckpt_name.replace("best_transformed_model_", "")
@@ -42,13 +36,13 @@ if __name__ == '__main__':
     }
 
     # validate_invertibility(model, vit_transform)
-    with model.smoothing_enabled(fwhm_mm=2.0, resolution_mm=1.0):
+    with model.smoothing_enabled(fwhm_mm=1.0, resolution_mm=1.0):
         validate_floc(
             model, 
             vit_transform, 
             dataset_names=[
-                "biomotion", 
                 "vpnl", 
+                "biomotion", 
                 "kanwisher", 
                 "pitzalis",
                 # "motion", 

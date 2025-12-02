@@ -21,7 +21,7 @@ from utils import cached
 
 
 class CategoryDataset(Dataset):
-    def __init__(self, file_infos, transform=None, frames_per_video=24, video_fps=12):
+    def __init__(self, file_infos, transform, frames_per_video=24, video_fps=12):
         self.file_paths = [info[0] for info in file_infos]
         self.labels = [info[1] for info in file_infos]
         self.transform = transform
@@ -56,13 +56,12 @@ class CategoryDataset(Dataset):
 
             data = video_transform(
                 file_path, time_start, time_end,
-                torch_transforms=self.transform or transforms.Lambda(lambda x: x),
+                torch_transforms=self.transform,
                 fps=self.video_fps
             )
         else:
             img = torch.from_numpy(np.array(Image.open(file_path).convert('RGB'))).permute(2,0,1)
-            if self.transform:
-                img = self.transform(img)
+            img = self.transform(img)
             data = img.unsqueeze(0).repeat(self.frames_per_video, 1, 1, 1)
         
         return (data, label)

@@ -15,7 +15,7 @@ def fwe(pvals):
         FWE-corrected p-values.
     """
     pvals = np.array(pvals)
-    n_tests = len(pvals)
+    n_tests = pvals.size
     pvals_corrected = pvals * n_tests
     pvals_corrected[pvals_corrected > 1] = 1  # cap at 1
     return pvals_corrected

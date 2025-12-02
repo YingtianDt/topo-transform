@@ -12,14 +12,9 @@ from topo import TopoTransformedVJEPA, TopoTransformedTDANN
 
 from utils import cached
 from validate import load_transformed_model
+from models import vit_transform
 
 def _validate_features(ckpt_name):
-
-    vit_transform = transforms.Compose([
-        transforms.Resize((224, 224)), 
-        transforms.Lambda(lambda img: img/255.0),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])  
 
     is_swapopt = ckpt_name == "swapopt"
 

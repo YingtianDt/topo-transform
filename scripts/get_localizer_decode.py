@@ -35,7 +35,7 @@ class Extractor:
         return [lf.mean(dim=1) for lf in layer_features]  # average over time dimension
 
 
-def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0):
+def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=LOCALIZER_T_THRESHOLD):
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model, epoch = load_transformed_model(checkpoint_name=ckpt_name, device=device)

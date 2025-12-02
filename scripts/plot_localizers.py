@@ -12,7 +12,7 @@ from .get_localizers import localizers
 from validate.floc.utils.cluster import visualize_patches
 
 def plot_all_rois(t_vals_dict, p_vals_dict, layer_positions, store_dir, figsize_per_panel=5, 
-                  prefix='', suffix='', p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=0, dpi=250):
+                  prefix='', suffix='', p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=LOCALIZER_T_THRESHOLD, dpi=250):
     
     os.makedirs(store_dir, exist_ok=True)
 

@@ -17,18 +17,24 @@ def load_motion_data(txt_file_path):
 
 
 def scramble_motion(data, seed=None):
-    """Randomly reassign marker trajectories while preserving starting positions."""
+    """Randomly assign starting positions while preserving local trajectories."""
     if seed is not None:
         np.random.seed(seed)
     
     n_frames, n_markers = data.shape[:2]
     scrambled = np.zeros_like(data)
-    permutation = np.random.permutation(n_markers)
+    
+    # Random starting positions sampled independently from the original markers
+    random_starts = np.random.uniform(
+        low=np.min(data[0], axis=0), 
+        high=np.max(data[0], axis=0), 
+        size=(n_markers, data.shape[2])
+    )
     
     for i in range(n_markers):
-        trajectory = data[:, permutation[i], :].copy()
-        offset = data[0, i, :] - trajectory[0, :]
-        scrambled[:, i, :] = trajectory + offset
+        trajectory = data[:, i, :].copy()
+        local_offsets = trajectory - trajectory[0, :]  # preserve relative motion
+        scrambled[:, i, :] = random_starts[i] + local_offsets
     
     return scrambled
 
@@ -246,7 +252,7 @@ if __name__ == "__main__":
                         scrambled=scrambled,
                         static=static,
                         frame_size=(224, 224),
-                        seed=42,
+                        seed=None,
                         video_fps=30,
                         video_duration=2.0
                     )

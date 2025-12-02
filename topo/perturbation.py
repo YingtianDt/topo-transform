@@ -49,7 +49,8 @@ class LayerPerturbation:
 class TopoModelPerturbation:
     def __init__(self, topo_model, identifier_suffix_max_len=3):
         assert hasattr(topo_model.model, 'register_forward_hook'), 'PyTorch model required'
-        self.topo_model = self.bind_transforms(topo_model)
+        self.topo_model = topo_model
+        self.bind_transforms(topo_model)
         self._base_identifier = topo_model.name
         self._hooks = []
         self._max_len = identifier_suffix_max_len
@@ -179,20 +180,3 @@ class MicroStimulation(TopoModelPerturbation):
         scale += 1
         scale = np.minimum(scale, self.MAXIMUM_HZ / self.BASELINE_HZ)
         return scale, operator.mul
-
-
-class PerturbationManager:
-    """Manages multiple perturbation types for a topo model."""
-    def __init__(self, mapping):
-        self.mapping = mapping
-        self._logger = logging.getLogger(self.__class__.__name__)
-
-    def perturb(self, perturbation_type, *args, **kwargs):
-        if perturbation_type is None:
-            self._logger.debug("Clearing all perturbations")
-            for executor in self.mapping.values():
-                executor.clear()
-            return
-        
-        executor = self.mapping[perturbation_type]
-        return executor.perturb(*args, **kwargs)
