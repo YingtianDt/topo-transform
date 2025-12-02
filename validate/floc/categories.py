@@ -14,8 +14,8 @@ from utils import cached
 from .utils import t_test
 
 
-VPNL = '/mnt/scratch/ytang/datasets/fLoc_stimuli'
-KANWISHER = '/mnt/scratch/ytang/datasets/lahner/stimulus_set/stimuli/localizer'
+VPNL = '/ccn2/u/ynshah/tdann-transform/cache/datasets/fLoc_stimuli'
+KANWISHER = '/ccn2/u/ynshah/spacetimetorch/datasets/lahner'
 
 
 def VPNL_category_dataset(data_dir=VPNL, frames_per_video=24, video_fps=12):

@@ -14,7 +14,7 @@ from utils import cached
 from .utils import t_test
 
 
-BIOLOGICAL_MOTION = '/mnt/scratch/ytang/datasets/biological-motion'
+BIOLOGICAL_MOTION = '/ccn2/u/ynshah/spacetimetorch/datasets/biological-motion'
 
 
 def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION):

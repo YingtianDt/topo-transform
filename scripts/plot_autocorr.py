@@ -31,12 +31,14 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         # Handle variable dimensions [B, C, H, W] or [B, T, C, H, W]
         if lf.ndim == 5:  # [B, T, C, H, W]
             B, T, C, H, W = lf.shape
-            lf = lf.reshape(B * T, C, H, W)
+            lf = lf.reshape(-1, C, H, W)
         else:  # [B, C, H, W]
             B, C, H, W = lf.shape
+
+        print(lf.shape)
         
         # Flatten spatial dimensions
-        feats = lf.reshape(-1, C * H * W).cpu().numpy()  # [B*T, N]
+        feats = lf.reshape(len(lf), -1).cpu().numpy()  # [B*T, N]
         pos = layer_positions[l].coordinates.cpu().numpy()  # [N, 2]
         assert pos.shape[0] == feats.shape[1], f"Position and feature size mismatch at layer {l}: {pos.shape[0]} vs {feats.shape[1]}"
         
@@ -47,6 +49,7 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         
         # Compute autocorrelation for random probe units
         num_probes = min(num_probes, C * H * W)
+        np.random.seed(0)
         probe_indices = np.random.choice(C * H * W, num_probes, replace=False)
         probe_x = x[:, probe_indices]  # [B*T, num_probes]
         autocorrs = np.dot(probe_x.T, x) / x.shape[0]  # [num_probes, N]
@@ -75,8 +78,8 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
             ax = axes[i]
             
             # Use custom colormap with adjusted range to show more variation
-            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap=cmap, 
-                          s=1.5, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none')
+            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap="seismic", 
+                          s=3, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none')
             ax.scatter(probe_pos[0], probe_pos[1], c='gold', s=100, 
                       marker='*', linewidths=2, edgecolors='black', zorder=10)
             

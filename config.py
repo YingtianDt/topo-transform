@@ -6,6 +6,7 @@ RERUN = False
 YASH = False
 
 HOME_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+print(HOME_DIR)
 
 # Environment setup
 if (env_path := HOME_DIR / ".env").exists():

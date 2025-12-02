@@ -25,6 +25,9 @@ def _localizers(
     model.eval()
     transform = vit_transform
 
+    is_swapopt = "swapopt" in checkpoint_name
+    frames_per_video = 24 if not is_swapopt else 16
+
     with model.smoothing_enabled(
             fwhm_mm=fwhm_mm, 
             resolution_mm=resolution_mm, 

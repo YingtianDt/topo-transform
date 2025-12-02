@@ -8,10 +8,10 @@ import config
 from data import Kinetics400
 from topo import TopoTransformedVJEPA
 
-from .get_validate_features import validate_features
+from get_validate_features import validate_features
 from config import CACHE_DIR, PLOTS_DIR
 
-from .common import *
+from common import *
 
 
 def plot_distance_similarity(
@@ -111,18 +111,12 @@ def plot_distance_similarity(
     # ax.set_axisbelow(True)
     
     # Labels and title
-    ax.set_xlabel('Cortical Distance', fontsize=13)
-    ax.set_ylabel('Response Similarity', fontsize=13)
-    ax.set_title('Spatial Loss Encourages Local Correlations', 
-                fontsize=14, pad=15)
     # ax.set_ylim([-1.05, 1.05])
     
     # Set x-ticks - show 5-7 evenly spaced ticks
-    n_ticks = min(n_bins//2+1, n_bins)
-    tick_indices = np.linspace(0, len(bin_centers)-1, n_ticks, dtype=int)
-    tick_positions = bin_centers[tick_indices]
-    ax.set_xticks(tick_positions)
-    ax.set_xticklabels([f'{x:.2f}' for x in tick_positions], fontsize=11)
+    ax.set_xticks([0, 70])
+    ax.set_xticklabels(["", ""])
+    ax.set_yticks([-0.5, 0, 0.5])
     
     # Improve tick appearance
     ax.tick_params(axis='both', which='major', labelsize=11, 
@@ -146,4 +140,4 @@ if __name__ == '__main__':
     layer_features = all_features[0]
     positions = positions[0]
     plot_distance_similarity(layer_features, positions.coordinates, 
-                            PLOTS_DIR / 'plot_wiring_cost.svg')
+                            PLOTS_DIR / 'plot_wiring_cost.png')
