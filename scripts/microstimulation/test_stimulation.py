@@ -16,28 +16,17 @@ from models import vit_transform
 from utils import cached
 from scripts.common import *
 
+from .utils import Extractor, _Dataset
 from .get_behaviour_decoder import get_decoder
-from .get_stimulation_location import get_stimulation_location
+from .get_stimulation_location import get_selectivity_based_stimulation_locations
 from topo.perturbation import MicroStimulation
 
 
-class _Dataset(Dataset):
-    def __init__(self, dataset):
-        self.dataset = dataset
-    
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        data, label, _ = self.dataset[idx]
-        return data, label
-
-# do no transform and return the last layer features
-class Extractor:
-    def __call__(self, model, inputs):
-        with torch.no_grad():
-            layer_features, layer_positions = model(inputs, do_transform=False)  # pre-transform
-        return layer_features[-1].mean(dim=1)  # average over time dimension
+STIMULATION_PARAMETERS = {
+    # "Microstimulation consisted of bipolar current pulses of 50mA delivered at 200 Hz (refs 19, 20).
+    'current_pulse_mA': 500,
+    'pulse_rate_Hz': 200,
+}
 
 def _test_stimulation(ckpt_name, dataset_name):
     
@@ -48,12 +37,9 @@ def _test_stimulation(ckpt_name, dataset_name):
     decoder = get_decoder(ckpt_name, dataset_name)
 
     stimulation = MicroStimulation(model)
-    perturbation_params = {
-        "current_pulse_mA": 50,
-        "pulse_rate_Hz": 200,
-    }
+    perturbation_params = STIMULATION_PARAMETERS
 
-    batch_size = 16
+    batch_size = 64
 
     if dataset_name == "afraz2006":
         dataset = AFRAZ2006(transforms=vit_transform)
@@ -61,20 +47,47 @@ def _test_stimulation(ckpt_name, dataset_name):
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")
 
+    shuffle = False
+    assert shuffle == False, "Shuffle must be False for evaluation"
     val = _Dataset(dataset.valset)
-    val_loader = get_data_loader(val, batch_size=batch_size, shuffle=False, num_workers=batch_size)
-    noise_levels = dataset.valset.noise_levels()
+    val_loader = get_data_loader(val, batch_size=batch_size, shuffle=shuffle, num_workers=batch_size)
+    label_signal_levels = dataset.valset.label_signal_levels()
     
     extractor = Extractor()
 
-    # pre stimulation
+    ret = {}
 
+    # pre stimulation
     val_features, val_labels = run_features(model, val_loader, extractor, device=device)
     val_pred = decoder.predict(torch.from_numpy(val_features))
-    breakpoint()
+    
+    ret['pre_stimulation'] = val_pred
+    ret['label_signal_levels'] = label_signal_levels
+
+    # post stimulation
+    stimulation_locations, selecitivities = get_selectivity_based_stimulation_locations([roi], ckpt_name)
+    stimulation_locations = stimulation_locations[0]  # single ROI
+    selecitivities = selecitivities[0]
+
+    val_pred_list = []
+    for location in stimulation_locations:
+        stimulation.perturb(location, perturbation_params)
+        val_features, val_labels = run_features(model, val_loader, extractor, device=device)
+        val_pred = decoder.predict(torch.from_numpy(val_features))
+        val_pred_list.append(val_pred)
+        stimulation.clear()
+
+        break # only do one location for testing purposes
+
+    ret['post_stimulation'] = val_pred_list
+    ret['stimulation_locations'] = stimulation_locations
+    ret['selecitivities'] = selecitivities
+
+    return ret
+
 
 def test_stimulation(ckpt_name, dataset_name):
-    return cached(f"test_stimulation_{dataset_name}_{ckpt_name}")(_test_stimulation)(ckpt_name, dataset_name)
+    return cached(f"test_stimulation_{dataset_name}_{ckpt_name}", rerun=True)(_test_stimulation)(ckpt_name, dataset_name)
 
 
 if __name__ == "__main__":

@@ -22,28 +22,48 @@ class LayerPerturbation:
         self._change_function = change_function
 
     def __call__(self, layer_module, input, output):
+        output_multiple = False
+        if isinstance(output, tuple):
+            extra = output[1:]
+            output = output[0]
+            output_multiple = True
+
         changes = self._changes
         transform = getattr(layer_module, '_transform')
 
-        result = transform(output)
+        # assume VJEPA
+        B, L, C = output.shape
+        output = output.reshape(B, -1, 14, 14, C)  # (B, T, H, W, C)
+        output = output.permute(0, 1, 4, 2, 3)  # (B, T, C, H, W)
 
-        if len(changes.shape) < len(result.shape[1:]):
-            changes = changes.reshape(result.shape[1:])
-        
+        result = []
+        for t in range(output.shape[1]):
+            inp_t = output[:, t, :, :, :]  # (B, C, H, W)
+            res = transform(inp_t)
+            result.append(res)
+        result = torch.stack(result, dim=1)  # (B, T, C, H, W)
+
         if hasattr(result, 'device'):
             changes = torch.Tensor(changes).to(result.device)
         
-        for i, change in enumerate(changes):
-            if len(result.shape) == 4:  # conv: [B, C, H, W]
-                result[:, i, :, :] = self._change_function(result[:, i, :, :], change)
-            elif len(result.shape) == 5:  # [B, T, C, H, W]
-                result[:, :, i, :, :] = self._change_function(result[:, :, i, :, :], change)
-            else:
-                raise ValueError(f"Unknown shape {result.shape}")
+        for t in range(result.shape[1]):
+            result[:, t] = self._change_function(result[:, t], changes)
 
-        stimulated_output = transform.inverse(result)
+        stimulated_output = []
+        for t in range(result.shape[1]):
+            res_t = result[:, t, :, :, :]  # (B, C, H, W)
+            out = transform._inverse(res_t)
+            stimulated_output.append(out)
+        stimulated_output = torch.stack(stimulated_output, dim=1)  # (B, T, C, H, W)
+
+        stimulated_output = stimulated_output.permute(0, 1, 3, 4, 2)  # (B, T, H, W, C)
+        stimulated_output = stimulated_output.reshape(B, L, C)  # (B, L, C)
         
-        return stimulated_output
+        if output_multiple:
+            stimulated_output = (stimulated_output, *extra)
+            return stimulated_output
+        else:
+            return stimulated_output
 
 
 class TopoModelPerturbation:
@@ -76,10 +96,10 @@ class TopoModelPerturbation:
             # Changes are distributed across all layers based on spatial position
             layer_pos = self.topo_model.layer_positions[0]
             all_coordinates = layer_pos.coordinates.cpu().numpy()
-            dims = layer_pos.dims  # (C, H, W_total)
-            C, H, W_total = dims
+            dims = layer_pos.dims  # (C_total, H, W)
+            C_total, H, W = dims
             num_layers = len(self.topo_model.layer_names)
-            W_per_layer = W_total // num_layers
+            C_per_layer = C_total // num_layers
             
             # Compute changes for all concatenated positions
             changes_flat, change_fn = self.compute_changes(
@@ -88,15 +108,15 @@ class TopoModelPerturbation:
                 **perturbation_params
             )
             
-            # Reshape changes from flat to (C, H, W_total)
-            changes_concat = changes_flat.reshape(C, H, W_total)
+            # Reshape changes from flat to (C_total, H, W)
+            changes_concat = changes_flat.reshape(C_total, H, W)
             
             # Distribute changes across all layers
             for idx, layer_name in enumerate(self.topo_model.layer_names):
                 # Extract this layer's slice from concatenated width
-                w_start = idx * W_per_layer
-                w_end = (idx + 1) * W_per_layer
-                layer_changes = changes_concat[:, :, w_start:w_end]  # (C, H, W)
+                c_start = idx * C_per_layer
+                c_end = (idx + 1) * C_per_layer
+                layer_changes = changes_concat[c_start:c_end, :, :]  # (C, H, W)
                 
                 perturbation = LayerPerturbation(layer_changes, change_fn)
                 layer_module = self._get_layer_module(layer_name)
@@ -175,7 +195,7 @@ class MicroStimulation(TopoModelPerturbation):
     def compute_changes(self, neuron_locs, location, current_pulse_mA, pulse_rate_Hz, **kwargs):
         distances = np.linalg.norm(neuron_locs - location, axis=1)
         # Exponential fit from Kumaravelu et al. 2021
-        scale = np.exp(-distances / (0.00505 * (current_pulse_mA - 5.26)))
+        scale = np.exp(-distances / (0.00505047368 * (current_pulse_mA + -5.26062113)))
         scale *= pulse_rate_Hz / self.BASELINE_HZ
         scale += 1
         scale = np.minimum(scale, self.MAXIMUM_HZ / self.BASELINE_HZ)

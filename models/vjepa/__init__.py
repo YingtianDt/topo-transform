@@ -40,8 +40,8 @@ class VJEPA(nn.Module):
     def forward(self, x):
         x = x.permute(0, 2, 1, 3, 4)  # BTCHW -> BCTHW
         features = self.backbone(x)
-        out = self.head_without_classif(features)
-        return out[:, 0]
+        # out = self.head_without_classif(features)
+        return features
 
 
 class VJEPASwapopt(nn.Module):

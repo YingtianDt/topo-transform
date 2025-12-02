@@ -167,7 +167,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         extractor = VJEPAFeatureExtractor(layer_indices=layer_indices)
         transform = TopoTransform(layer_dims=extractor.layer_dims)
 
-        layer_config_dir = (POSITION_DIR / name)
+        layer_config_dir = (POSITION_DIR / f"{name}_sd{seed}")
         print(layer_config_dir)
 
         if not layer_config_dir.exists() or rebuild:
@@ -205,7 +205,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                     layer_positions.append(layer_position)
             else:
                 if swapopt:
-                    file_path = layer_config_dir / "backbone.blocks.14.attn.npz"
+                    file_path = layer_config_dir / "backbone.blocks.18.attn.npz"
                 else:
                     file_path = layer_config_dir / "single_sheet.pkl"
                 assert file_path.exists()
@@ -227,7 +227,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
             concatenated_features = []
             for feat in layer_features:
                 concatenated_features.append(feat)  # list of (B, C, H, W)
-            concatenated_features = torch.cat(concatenated_features, dim=-1)
+            concatenated_features = torch.cat(concatenated_features, dim=1)  # (B, C*num_layers, H, W)
             layer_features = [concatenated_features]
             layer_positions = self.layer_positions
         else:

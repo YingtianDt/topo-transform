@@ -88,18 +88,18 @@ class _AFRAZ2006(VisionDataset):
         self.samples = []
         for idx, row in self.annot.iterrows():
             filename = row['filename']
-            noise_level = row['noise_level']
+            label_signal_level = row['label_signal_level']
             label = int(row['image_label'] == "face")  # binary classification: face vs non-face
             img_path = os.path.join(self.root, filename)
-            self.samples.append((img_path, label, noise_level))
+            self.samples.append((img_path, label, label_signal_level))
 
-    def noise_levels(self):
+    def label_signal_levels(self):
         """Get unique noise levels in the dataset."""
         return [d[2] for d in self.samples]
 
     def __getitem__(self, idx: int) -> Tuple:
         """Get video data and label."""
-        img_path, label, noise_level = self.samples[idx]
+        img_path, label, label_signal_level = self.samples[idx]
 
         if self.transforms is None:
             return img_path, label, self.dataset_name

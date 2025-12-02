@@ -6,7 +6,7 @@ from .ridgecv import RidgeGCVTorch
 
 def make_decoder(test_type, device):
     if test_type == 'classify':
-        decoder = CuMLLogisticRegression(max_iter=10000, C=1e3)
+        decoder = CuMLLogisticRegression(max_iter=10000)
     elif test_type.endswith('regress'):
         decoder = RidgeGCVTorch(alphas=np.logspace(-8, 8, 17), device=device)
         decoder = PearsonRScore(decoder)

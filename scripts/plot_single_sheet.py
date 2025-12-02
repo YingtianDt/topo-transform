@@ -14,20 +14,18 @@ from pathlib import Path
 from config import CACHE_DIR, PLOTS_DIR
 from spacetorch.models.positions import LayerPositions
 
-from .config import CACHE_DIR
+from .common import MODEL_CKPT
+from validate import load_transformed_model
 
 
 POSITION_DIR = CACHE_DIR / "positions"
 
 
-def load_layer_positions(model_name):
+def load_layer_positions(layer_config_dir):
     """Load layer positions for a given model configuration."""
-    layer_config_dir = POSITION_DIR / model_name
-    
-    if not layer_config_dir.exists():
-        raise ValueError(f"No layer positions found for model: {model_name}")
     
     layer_positions = []
+    layer_config_dir = Path(layer_config_dir)
     position_files = sorted(layer_config_dir.glob("*.pkl"))
     
     for file_path in position_files:
@@ -38,26 +36,35 @@ def load_layer_positions(model_name):
 
 
 def visualize_3d_layers(layer_positions, layer_indices=None, 
-                        figsize=(20, 5), elevation=8, azimuth=0,
+                        figsize=(20, 5), elevation=8, azimuth=-90,
                         show_neurons=True, neuron_size=3, alpha=0.8,
                         colormap='viridis', depth_spacing=10,
                         subsample_factor=0.01,
                         layer_names=None, save_path=None,
-                        show_shadows=True, shadow_alpha=0.4):
+                        show_shadows=True, shadow_alpha=0.9):
     
     if layer_indices is None:
         layer_indices = range(len(layer_positions))
     
     n_layers = len(layer_indices)
+    n_layers = 1
     
     # Create subplots
     fig = plt.figure(figsize=figsize)
     
-    for plot_idx, layer_idx in enumerate(layer_indices):
+    for plot_idx, layer_idx in enumerate(layer_indices[:n_layers]):
         ax = fig.add_subplot(1, n_layers, plot_idx + 1, projection='3d')
         
         layer_pos = layer_positions[layer_idx]
         coords = layer_pos.coordinates
+        dims = layer_pos.dims
+        assert dims == (1024*3, 14, 14)
+
+        # assume single layer
+        # color the bottom-left channel of the first layer
+        mask = np.zeros(dims, dtype=bool)
+        mask[:1024, :, :] = True
+        mask = mask.flatten()
 
         # Subsample coordinates for visualization
         if subsample_factor < 1.0:
@@ -65,6 +72,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
             subsample_size = max(1, int(num_neurons * subsample_factor))
             selected_indices = np.random.choice(num_neurons, subsample_size, replace=False)
             coords = coords[selected_indices]
+            mask = mask[selected_indices]
         
         # Convert to numpy if tensor
         if torch.is_tensor(coords):
@@ -81,13 +89,17 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
             # Plot shadows first (on the bottom plane)
             if show_shadows:
                 ax.scatter(coords[:, 0], coords[:, 1], 
-                          z_coords - 0.1,
+                          z_coords - 0.06,
                           c='black', s=neuron_size * 1.6, alpha=shadow_alpha,
                           edgecolors='none')
             
             # Plot all neurons in grey with edge colors for 3D appearance
+            color = np.array(['#808080']*coords.shape[0])
+            for i in range(coords.shape[0]):
+                if mask[i]:
+                    color[i] = "#66CCFF"  # Highlighted color
             ax.scatter(coords[:, 0], coords[:, 1], z_coords,
-                      c='#808080',  # Grey color
+                      color=color,  # Grey color
                       s=neuron_size, 
                       alpha=alpha,
                       edgecolors='white',  # White edges for 3D effect
@@ -127,29 +139,20 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
 
 
 if __name__ == "__main__":
-    import argparse
     
-    parser = argparse.ArgumentParser(description='Visualize layer positions in 3D')
-    parser.add_argument('--model', type=str, default=MODEL_CKPT,
-                       help='Model configuration name')
-    parser.add_argument('--layers', type=int, nargs='+', default=None,
-                       help='Specific layer indices to visualize')
-    parser.add_argument('--save-dir', type=str, default=None,
-                       help='Directory to save figures')
-    
-    args = parser.parse_args()
-    
+    layer_position_dir = "/mnt/scratch/ytang/tdann/cache/positions/vjepa_14_18_22_single_neighbInf"
+
     # Create save directory if specified
-    save_dir = Path(args.save_dir) if args.save_dir else PLOTS_DIR / "plot_single_sheet"
+    save_dir = PLOTS_DIR / "plot_single_sheet"
     save_dir.mkdir(exist_ok=True, parents=True)
     
     # Load layer positions
-    print(f"Loading layer positions for model: {args.model}")
-    layer_positions = load_layer_positions(args.model)
+    print(f"Loading layer positions from directory: {layer_position_dir}")
+    layer_positions = load_layer_positions(layer_position_dir)
     print(f"Loaded {len(layer_positions)} layers")
     
     visualize_3d_layers(
         layer_positions,
-        layer_indices=args.layers,
-        save_path=save_dir / f"{args.model}.png" if save_dir else None
+        layer_indices=None,
+        save_path=save_dir / "single_sheet.png" if save_dir else None
     )

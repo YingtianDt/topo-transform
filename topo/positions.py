@@ -131,13 +131,16 @@ def create_position_dict_single_sheet(cfgs: List[LayerPlacement]) -> Dict[str, A
             return_rf_radius=True,
         )
         positions[:, 0] += i * cfg.tissue_size
+        print(f"Layer {cfg.name} positions (x,y): min {positions.min(axis=0)}, max {positions.max(axis=0)}")
         position_lists.append(positions)
 
     positions = np.concatenate(position_lists, axis=0)
     positions = jitter_positions(positions, jitter=0.3)
 
+    neighborhood_width = (positions.max() - positions.min()) * 100  # large enough to cover all layers
+
     neighborhood_list = precompute_neighborhoods(
-        positions, radius=cfg.neighborhood_width / 2, n_neighborhoods=20_000
+        positions, radius=neighborhood_width / 2, n_neighborhoods=20_000
     )
 
     neighborhoods = collapse_and_trim_neighborhoods(
@@ -148,7 +151,7 @@ def create_position_dict_single_sheet(cfgs: List[LayerPlacement]) -> Dict[str, A
         "positions": positions,
         "neighborhoods": neighborhoods,
         "radius": cfg.neighborhood_width / 2,
-        "dims": (C, H, W * num_layers),
+        "dims": (C * num_layers, H, W),
     }
 
 def create_position_dicts(

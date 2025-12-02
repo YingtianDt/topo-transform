@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-DEBUG = True
+DEBUG = False
 RERUN = False
 YASH = False
 

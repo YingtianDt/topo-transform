@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 
 
-VJEPA_LAYERS = [f'backbone.blocks.{i}.attn' for i in range(24)]
+VJEPA_LAYERS = [f'backbone.blocks.{i}' for i in range(24)]
 UNIFORMER_LAYERS = [
     *[f'model.blocks1.{i}' for i in range(0,  5)],
     *[f'model.blocks2.{i}' for i in range(0,  8)],

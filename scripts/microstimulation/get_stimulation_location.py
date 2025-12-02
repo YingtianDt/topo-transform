@@ -6,9 +6,10 @@ from validate import load_transformed_model
 from validate.correction import fdr, fwe
 
 from scripts.common import *
+from scripts.get_localizers import localizers
 
 
-def get_patches(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=0, fwhm_mm=2.0, resolution_mm=1.0):
+def get_patches(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=LOCALIZER_T_THRESHOLD, fwhm_mm=2.0, resolution_mm=1.0):
     t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
     # merge p_vals_dicts
@@ -53,7 +54,7 @@ def get_patches(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=0, fwhm_
         ret.append(patches)
     return ret
 
-def get_stimulation_location(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0):
+def get_patch_based_stimulation_location(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0):
     # choose the geometric center of the largest patch as stimulation location for each ROI
     patches = get_patches(rois, ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
     locations = []
@@ -67,3 +68,53 @@ def get_stimulation_location(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0):
         locations.append(center)
     return locations
     
+def get_selectivity_based_stimulation_locations(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0, num_samples=50):
+    t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+
+    # merge t_vals_dicts
+    t_val_dict = {}
+    for t_vals in t_vals_dicts:
+        t_val_dict.update(t_vals)
+
+    locations = []
+    selecitivities = []
+    for roi in rois:
+        if roi == "face":
+            t_vals = t_val_dict["face"]
+        elif roi == "place":
+            t_vals = t_val_dict["place"]
+        elif roi == "body":
+            t_vals = t_val_dict["body"]
+        elif roi == "object":
+            t_vals = t_val_dict["object"]
+        elif roi == "v6":
+            t_vals = t_val_dict["V6"]   
+        elif roi == "psts":
+            t_vals = t_val_dict["pSTS"]
+        elif roi == "mt":
+            t_vals = t_val_dict["MT-Huk"]
+        else:
+            raise ValueError(f"Unknown roi: {roi}")
+        
+        # assume single layer
+        assert len(t_vals) == 1
+        t_vals = t_vals[0].flatten()  
+        positions = layer_positions[0]  # (x, y)
+
+        # sample randomly num_samples points from the suprathreshold locations
+        suprathreshold_indices = np.where(t_vals > 0)[0]
+        if len(suprathreshold_indices) == 0:
+            raise ValueError(f"No suprathreshold locations found for ROI: {roi}")
+        sampled_indices = np.random.choice(suprathreshold_indices, size=min(num_samples, len(suprathreshold_indices)), replace=False)
+        sampled_t_vals = t_vals[sampled_indices]
+        sampled_positions = positions[sampled_indices]
+
+        # sort by t_vals descending
+        sorted_indices = np.argsort(-sampled_t_vals)
+        sampled_t_vals = sampled_t_vals[sorted_indices]
+        sampled_positions = sampled_positions[sorted_indices]
+
+        locations.append(sampled_positions.numpy())
+        selecitivities.append(sampled_t_vals)
+        
+    return locations, selecitivities
