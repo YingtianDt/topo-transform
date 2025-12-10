@@ -8,6 +8,7 @@ from .v6 import localize_v6
 from .psts import localize_psts
 from .pitcher import localize_pitcher, localize_pitcher_human
 from .robert import localize_robert
+from .afraz import localize_afraz
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
 

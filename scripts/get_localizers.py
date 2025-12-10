@@ -92,6 +92,16 @@ def _localizers(
                     video_fps=video_fps,
                     ret_pvals=True,
                 )
+            elif dataset_name == "afraz":
+                t_vals_dict, p_vals_dict = localize_afraz(
+                    model,
+                    transform,
+                    batch_size=batch_size,
+                    device=device,
+                    frames_per_video=frames_per_video,
+                    video_fps=video_fps,
+                    ret_pvals=True,
+                )
             elif dataset_name == "pitcher":
                 print("For Pitcher dataset, using duration = 3 seconds")
                 t_vals_dict, p_vals_dict = localize_pitcher(
@@ -179,8 +189,14 @@ def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=
     for t_vals in t_vals_dicts:
         t_val_dict.update(t_vals)
 
-    def _filter(p_val, t_val):
-        mask = (p_val < p_thres) & (t_val > t_thres)
+    def _filter(roi, p_val, t_val):
+        if roi in ["mt", "v6"]:
+            t_thres_used = LOCALIZER_FLOW_T_THRESHOLD
+        elif roi in ["psts"]:
+            t_thres_used = LOCALIZER_BIOMOTION_T_THRESHOLD
+        else:
+            t_thres_used = t_thres
+        mask = (p_val < p_thres) & (t_val > t_thres_used)
         return mask
 
     ret = []
@@ -188,12 +204,21 @@ def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=
         if roi == "face":
             p_vals = p_val_dict["face"]
             t_vals = t_val_dict["face"]
+        elif roi == 'face-dynamic':
+            p_vals = p_val_dict["Faces_localizer"]
+            t_vals = t_val_dict["Faces_localizer"]
         elif roi == "place":
             p_vals = p_val_dict["place"]
             t_vals = t_val_dict["place"]
+        elif roi == "place-dynamic":
+            p_vals = p_val_dict["Scenes_localizer"]
+            t_vals = t_val_dict["Scenes_localizer"]
         elif roi == "body":
             p_vals = p_val_dict["body"]
             t_vals = t_val_dict["body"]
+        elif roi == "body-dynamic":
+            p_vals = p_val_dict["Bodies_localizer"]
+            t_vals = t_val_dict["Bodies_localizer"]
         elif roi == "object":
             p_vals = p_val_dict["object"]
             t_vals = t_val_dict["object"]
@@ -206,9 +231,15 @@ def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=
         elif roi == "mt":
             p_vals = p_val_dict["MT-Huk"]
             t_vals = t_val_dict["MT-Huk"]
+        elif roi == "psts-enhanced":
+            p_vals = p_val_dict["pSTS-enhanced"]
+            t_vals = t_val_dict["pSTS-enhanced"]
+        elif roi == "v6-enhanced":
+            p_vals = p_val_dict["V6-enhanced"]
+            t_vals = t_val_dict["V6-enhanced"]
         else:
             raise ValueError(f"Unknown roi: {roi}")
-        masks = [_filter(p_val, t_val) for p_val, t_val in zip(p_vals, t_vals)]  # layers
+        masks = [_filter(roi, p_val, t_val) for p_val, t_val in zip(p_vals, t_vals)]  # layers
         ret.append(masks)
     return ret
 
@@ -226,10 +257,10 @@ def get_localizer_human(rois):
             mask = visf.get_region_voxels("bodies")
         elif roi == "character":
             mask = visf.get_region_voxels("characters")
-        elif roi == "v6":
+        elif roi == "v6" or roi == "v6-enhanced":
             mask = glasser.get_region_voxels(["V6"])
-        elif roi == "psts":
-            mask = glasser.get_region_voxels(["TPOJ2","TPOJ1"])
+        elif roi == "psts" or roi == "psts-enhanced":
+            mask = glasser.get_region_voxels(["TPOJ1"])
         elif roi == "mt":
             mask = visf.get_region_voxels("hMT")
         else:

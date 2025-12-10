@@ -6,16 +6,13 @@ from pathlib import Path
 from collections import defaultdict
 from tqdm import tqdm
 
+from config import VPNL, KANWISHER
 import os
 import numpy as np
 from scipy import stats
 
 from utils import cached
 from .utils import t_test
-
-
-VPNL = '/ccn2/u/ynshah/tdann-transform/cache/datasets/fLoc_stimuli'
-KANWISHER = '/ccn2/u/ynshah/spacetimetorch/datasets/lahner'
 
 
 def VPNL_category_dataset(data_dir=VPNL, frames_per_video=24, video_fps=12):

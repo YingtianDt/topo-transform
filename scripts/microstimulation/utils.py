@@ -17,7 +17,22 @@ class _Dataset(Dataset):
 
 # do no transform and return the last layer features
 class Extractor:
-    def __call__(self, model, inputs):
+    def __call__(self, model, inputs, do_transform=True, average_time=True):
         with torch.no_grad():
-            last_layer_features = model.model(inputs)  # vjepa forward pass
-            return last_layer_features
+            output = model.model(inputs)  # vjepa forward pass
+            B, L, C = output.shape
+            output = output.reshape(B, -1, 14, 14, C)  # (B, T, H, W, C)
+            output = output.permute(0, 1, 4, 2, 3)  # (B, T, C, H, W)
+
+            if average_time:
+                output = output.mean(dim=1)  # average over time dimension
+
+            if do_transform:
+                transform = model.transform.transforms[-1]
+                output = output.reshape(-1, C, 14, 14)  # (B*T, C, H, W)
+                output = transform(output) 
+                output = output.reshape(B, -1, C, 14, 14)
+                if average_time:
+                    output = output[:, 0]  # (B, C, H, W)
+
+            return output

@@ -4,7 +4,9 @@ from validate.floc import *
 from tqdm import tqdm
 
 from validate.rois.nsd import get_region_voxels
-NSD_HIGH = get_region_voxels(["high-ventral", "high-lateral", "high-dorsal"])
+NSD_HIGH = get_region_voxels(
+    ["high-ventral", "high-lateral", "high-dorsal"]
+)
 human_lh_adj_list, human_rh_adj_list = compute_nsd_high_adjacency_list()
 
 def validate_smoothness(
@@ -42,6 +44,67 @@ def validate_smoothness(
     human_t_val_dict = validate_floc_human(
         dataset_names=[dataset_name],
     )[0]
+
+    # # plot example
+    # example_cate = 'Scenes_static'
+    # example_model_t_vals = model_t_val_dict[example_cate].flatten()
+    # example_human_t_vals = human_t_val_dict[example_cate]
+    # example_human_t_vals[~NSD_HIGH] = np.nan 
+    # with model.smoothing_enabled(fwhm_mm=fwhm_mm, resolution_mm=resolution_mm):
+    #     positions = model.smoothed_layer_positions[0].coordinates.numpy()
+
+    # import matplotlib.pyplot as plt
+    # from nilearn import plotting, surface, datasets
+    
+    # # plot model
+    # model_v_max_abs = np.max(np.abs(example_model_t_vals))
+    # plt.scatter(
+    #     positions[:, 0], positions[:, 1], c=example_model_t_vals, cmap='bwr', s=5,
+    #     marker='s', vmax=model_v_max_abs, vmin=-model_v_max_abs
+    # )
+    # plt.axis('equal')
+    # plt.colorbar(label='t-value')
+    # plt.title(f'Model t-values for {example_cate}')
+    # plt.savefig('model_example_tvals.png', dpi=400)
+    # plt.close()
+
+    # # plot human
+    # human_v_max_abs = np.nanmax(np.abs(example_human_t_vals))
+    # example_fsaverage = datasets.fetch_surf_fsaverage('fsaverage5')
+    # plotting.plot_surf_stat_map(
+    #     example_fsaverage.flat_left,
+    #     example_human_t_vals[:len(example_human_t_vals)//2],
+    #     hemi='left',
+    #     title=f'Human t-values for {example_cate} (LH)',
+    #     colorbar=True,
+    #     cmap='bwr',
+    #     view='dorsal',
+    #     vmin=-human_v_max_abs, vmax=human_v_max_abs,
+    # )
+
+    # plt.savefig('human_example_tvals_lh.png', dpi=400)
+    # plt.close()
+
+    # # plot human
+    # human_v_max_abs = np.nanmax(np.abs(example_human_t_vals))
+    # example_fsaverage = datasets.fetch_surf_fsaverage('fsaverage5')
+    # plotting.plot_surf_stat_map(
+    #     example_fsaverage.infl_left,
+    #     example_human_t_vals[:len(example_human_t_vals)//2],
+    #     hemi='left',
+    #     title=f'Human t-values for {example_cate} (LH)',
+    #     colorbar=True,
+    #     cmap='bwr',
+    #     view='lateral',
+    #     vmin=-human_v_max_abs, vmax=human_v_max_abs,
+    # )
+
+    # plt.savefig('human_example_tvals_lh2.png', dpi=400)
+    # plt.close()
+
+    # breakpoint()
+
+
     human_lh_t_val_dict, human_rh_t_val_dict = _filter_high_regions(human_t_val_dict)
     human_lh_adj_list, human_rh_adj_list = compute_nsd_high_adjacency_list()
     human_cates = list(human_lh_t_val_dict.keys())
@@ -112,7 +175,7 @@ def compute_activity_smoothness_model(activity, model):
         activity = activity.cpu().numpy()
 
     B = activity.shape[0]
-    model_w = weights.lat2W(*model_sheet_dims[-2:], rook=False)
+    model_w = weights.lat2W(*model_sheet_dims[-2:])
     smoothness = []
     for b in tqdm(range(B), desc="Computing model smoothness"):
         s = Moran(activity[b], model_w).I

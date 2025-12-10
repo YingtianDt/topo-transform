@@ -89,7 +89,7 @@ class _AFRAZ2006(VisionDataset):
         for idx, row in self.annot.iterrows():
             filename = row['filename']
             label_signal_level = row['label_signal_level']
-            label = int(row['image_label'] == "face")  # binary classification: face vs non-face
+            label = int(row['image_label'] == "face")  # label: 1-face
             img_path = os.path.join(self.root, filename)
             self.samples.append((img_path, label, label_signal_level))
 

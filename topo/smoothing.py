@@ -24,7 +24,7 @@ class NeuronSmoothing:
 
         grid_dims = (1, grid_h, grid_w)
 
-        grids = torch.meshgrid(grid_x, grid_y, indexing='ij')
+        grids = torch.meshgrid(grid_x, grid_y, indexing='xy')
         grid_positions = torch.stack([grids[0].flatten(), grids[1].flatten()], dim=1)  # (n_grid_points, 2)
         return grid_positions, grid_dims
 

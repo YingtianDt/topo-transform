@@ -68,53 +68,76 @@ def get_patch_based_stimulation_location(rois, ckpt_name, fwhm_mm=2.0, resolutio
         locations.append(center)
     return locations
     
-def get_selectivity_based_stimulation_locations(rois, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0, num_samples=50):
-    t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+def get_selectivity_based_stimulation_locations(roi, ckpt_name, fwhm_mm=2.0, resolution_mm=1.0, num_samples=20, seed=42):
+    if roi == 'face-afraz':
+        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ['afraz'], fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+        t_vals_dict = t_vals_dicts[0]
+        p_vals_dict = p_vals_dicts[0]
+        t_vals = t_vals_dict['face_vs_nonface'][0]
 
-    # merge t_vals_dicts
-    t_val_dict = {}
-    for t_vals in t_vals_dicts:
-        t_val_dict.update(t_vals)
+        # select from face region
+        t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
+        p_vals_f = p_vals_dict['face'][0]
+        t_vals[p_vals_f > LOCALIZER_P_THRESHOLD] = -100  # mask out non-significant locations
 
-    locations = []
-    selecitivities = []
-    for roi in rois:
-        if roi == "face":
-            t_vals = t_val_dict["face"]
-        elif roi == "place":
-            t_vals = t_val_dict["place"]
-        elif roi == "body":
-            t_vals = t_val_dict["body"]
-        elif roi == "object":
-            t_vals = t_val_dict["object"]
-        elif roi == "v6":
-            t_vals = t_val_dict["V6"]   
-        elif roi == "psts":
-            t_vals = t_val_dict["pSTS"]
-        elif roi == "mt":
-            t_vals = t_val_dict["MT-Huk"]
-        else:
-            raise ValueError(f"Unknown roi: {roi}")
-        
-        # assume single layer
-        assert len(t_vals) == 1
-        t_vals = t_vals[0].flatten()  
-        positions = layer_positions[0]  # (x, y)
+    elif roi == 'face':
+        t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
+        t_vals = t_vals_dict['place']
+        t_vals = t_vals[0]
+        t_vals[:, :, -71:] = -100  # mask out non-central locations
 
-        # sample randomly num_samples points from the suprathreshold locations
-        suprathreshold_indices = np.where(t_vals > 0)[0]
-        if len(suprathreshold_indices) == 0:
-            raise ValueError(f"No suprathreshold locations found for ROI: {roi}")
-        sampled_indices = np.random.choice(suprathreshold_indices, size=min(num_samples, len(suprathreshold_indices)), replace=False)
-        sampled_t_vals = t_vals[sampled_indices]
-        sampled_positions = positions[sampled_indices]
+    t_vals = t_vals.flatten()
+    positions = layer_positions[0]  # (x, y)
 
-        # sort by t_vals descending
-        sorted_indices = np.argsort(-sampled_t_vals)
-        sampled_t_vals = sampled_t_vals[sorted_indices]
-        sampled_positions = sampled_positions[sorted_indices]
+    # sample randomly num_samples points from the suprathreshold locations
+    suprathreshold_indices = np.where(t_vals > 0)[0]
+    if len(suprathreshold_indices) == 0:
+        raise ValueError(f"No suprathreshold locations found for ROI: {roi}")
+    np.random.seed(seed)
+    sampled_indices = np.random.choice(suprathreshold_indices, size=min(num_samples, len(suprathreshold_indices)), replace=False)
+    sampled_t_vals = t_vals[sampled_indices]
+    sampled_positions = positions[sampled_indices]
 
-        locations.append(sampled_positions.numpy())
-        selecitivities.append(sampled_t_vals)
-        
+    # sort by t_vals descending
+    sorted_indices = np.argsort(-sampled_t_vals)
+    sampled_t_vals = sampled_t_vals[sorted_indices]
+    sampled_positions = sampled_positions[sorted_indices]
+
+    locations = sampled_positions.numpy()
+    selecitivities = sampled_t_vals
+    
     return locations, selecitivities
+
+def get_random_stimulation_locations(model, num_samples=50, seed=42, fwhm_mm=2.0, resolution_mm=1.0):
+    with model.smoothing_enabled(
+            fwhm_mm=fwhm_mm, 
+            resolution_mm=resolution_mm, 
+        ):
+        if model.smoothing:
+            layer_positions = [lp.coordinates.cpu() for lp in model.smoothed_layer_positions]
+        else:
+            layer_positions = [lp.coordinates.cpu() for lp in model.layer_positions]
+
+
+    # constraint to category-selective regions
+    regions = [
+        'Faces_localizer',
+        'Scenes_localizer',
+        'Bodies_localizer',
+        'Objects_localizer',
+    ]
+    mask = torch.zeros(layer_positions[0].shape[0], dtype=torch.bool)
+    ckpt_name = model.name
+    t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
+    for region in regions:
+        p_vals = p_vals_dict[region][0].flatten()
+        mask |= (p_vals < LOCALIZER_P_THRESHOLD)
+
+    positions = layer_positions[0]  # (x, y)
+    num_neurons = positions.shape[0]
+    np.random.seed(seed)
+    valid_indices = torch.where(mask)[0].numpy()
+    sampled_indices = np.random.choice(valid_indices, size=min(num_samples, len(valid_indices)), replace=False)
+    sampled_positions = positions[sampled_indices]
+    locations = sampled_positions.numpy()
+    return locations, sampled_indices

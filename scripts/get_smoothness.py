@@ -39,7 +39,7 @@ def smoothness(
         device='cuda',
         frames_per_video=24,
         video_fps=12,
-        fwhm_mm=1.0,
+        fwhm_mm=2.0,
         resolution_mm=1.0,
     ):
     cache_key = f"smoothness_{checkpoint_name}_{dataset_name}_{fwhm_mm}_{resolution_mm}"

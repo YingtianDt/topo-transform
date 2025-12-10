@@ -36,25 +36,15 @@ class LayerPerturbation:
         output = output.reshape(B, -1, 14, 14, C)  # (B, T, H, W, C)
         output = output.permute(0, 1, 4, 2, 3)  # (B, T, C, H, W)
 
-        result = []
-        for t in range(output.shape[1]):
-            inp_t = output[:, t, :, :, :]  # (B, C, H, W)
-            res = transform(inp_t)
-            result.append(res)
-        result = torch.stack(result, dim=1)  # (B, T, C, H, W)
+        output = output.reshape(-1, C, 14, 14)  # (B*T, C, H, W)
+        result = transform(output)
 
         if hasattr(result, 'device'):
             changes = torch.Tensor(changes).to(result.device)
         
-        for t in range(result.shape[1]):
-            result[:, t] = self._change_function(result[:, t], changes)
-
-        stimulated_output = []
-        for t in range(result.shape[1]):
-            res_t = result[:, t, :, :, :]  # (B, C, H, W)
-            out = transform._inverse(res_t)
-            stimulated_output.append(out)
-        stimulated_output = torch.stack(stimulated_output, dim=1)  # (B, T, C, H, W)
+        result = self._change_function(result, changes)
+        stimulated_output = transform.inverse(result)
+        stimulated_output = stimulated_output.reshape(B, -1, C, 14, 14)  # (B, T, C, H, W)
 
         stimulated_output = stimulated_output.permute(0, 1, 3, 4, 2)  # (B, T, H, W, C)
         stimulated_output = stimulated_output.reshape(B, L, C)  # (B, L, C)
@@ -107,6 +97,14 @@ class TopoModelPerturbation:
                 location, 
                 **perturbation_params
             )
+
+            from matplotlib import pyplot as plt
+            plt.scatter(all_coordinates[:,0], all_coordinates[:,1], c=changes_flat, cmap='viridis', s=1)
+            plt.colorbar()
+            # equally scale x and y axes
+            plt.axis('equal')
+            plt.savefig('debug_changes_flat.png')
+            plt.close()
             
             # Reshape changes from flat to (C_total, H, W)
             changes_concat = changes_flat.reshape(C_total, H, W)
@@ -198,5 +196,5 @@ class MicroStimulation(TopoModelPerturbation):
         scale = np.exp(-distances / (0.00505047368 * (current_pulse_mA + -5.26062113)))
         scale *= pulse_rate_Hz / self.BASELINE_HZ
         scale += 1
-        scale = np.minimum(scale, self.MAXIMUM_HZ / self.BASELINE_HZ)
+        # scale = np.minimum(scale, self.MAXIMUM_HZ / self.BASELINE_HZ)
         return scale, operator.mul

@@ -12,7 +12,7 @@ from config import CACHE_DIR, PLOTS_DIR
 from .get_smoothness import smoothness
 from .common import *
 
-def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=PLOTS_DIR):
+def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, resolution_mm=1.0, save_dir=PLOTS_DIR):
     """
     Generate bar plots comparing model and human smoothness across categories,
     and a correlation plot between model and human smoothness values.
@@ -92,14 +92,14 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
         print(f"Plot saved to: {save_path}")
 
     # Print statistics
-    overall_model_stats = np.mean(model_smoothness_mean), np.std(model_smoothness_mean)
-    overall_human_stats = np.mean(human_smoothness), np.std(human_smoothness)
+    overall_model_scores = np.array(model_smoothness_mean)
+    overall_human_scores = np.array(human_smoothness)
     print("\n" + "="*50)
     print("SMOOTHNESS STATISTICS")
     print("="*50)
     print(f"Number of models: {len(model_paths)}")
-    print(f"Mean Model Smoothness: {np.mean(model_smoothness_mean):.4f} ± {np.std(model_smoothness_mean):.4f}")
-    print(f"Mean Human Smoothness: {np.mean(human_smoothness):.4f} ± {np.std(human_smoothness):.4f}")
+    print(f"Mean Model Smoothness: {np.mean(overall_model_scores):.4f} ± {np.std(overall_model_scores):.4f}")
+    print(f"Mean Human Smoothness: {np.mean(overall_human_scores):.4f} ± {np.std(overall_human_scores):.4f}")
     
     # Category-wise differences
     print("\nCategory-wise Differences (Model Mean - Human):")
@@ -118,26 +118,26 @@ def plot_smoothness_comparison(model_paths, category, fwhm_mm=2.0, resolution_mm
             print(f"  {cat:15s}: SD = {model_std:.4f}")
 
     plt.close()
-    return overall_model_stats, overall_human_stats
+    return overall_model_scores, overall_human_scores
 
 
 if __name__ == '__main__':
-    category = 'pitcher'
-
-    model_stats, human_stats = plot_smoothness_comparison(MODEL_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0)
-    tdann_stats, human_stats = plot_smoothness_comparison(TDANN_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
-    unoptimized_stats, human_stats = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, category, fwhm_mm=2.0, resolution_mm=1.0, save_dir=None)
+    model_scores, human_scores = plot_smoothness_comparison(MODEL_CKPTS)
+    tdann_scores, human_scores = plot_smoothness_comparison(TDANN_CKPTS, save_dir=None)
+    unoptimized_scores, human_scores = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, save_dir=None)
+    swapopt_scores, human_scores = plot_smoothness_comparison(SWAPOPT_CKPTS, save_dir=None)
     
-    for stats, label, color in zip(
-        [human_stats, model_stats, tdann_stats, unoptimized_stats], 
-        ['HUMAN', 'MODEL', 'TDANN', 'UNOPTIMIZED'],
-        [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C]
+    for scores, label, color in zip(
+        [human_scores, model_scores, tdann_scores, unoptimized_scores, swapopt_scores], 
+        ['HUMAN', 'MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT'],
+        [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
     ):
-        mean_smoothness, std_smoothness = stats
+        mean_smoothness = np.mean(scores)
+        std_smoothness = np.std(scores)
         plt.bar(label, mean_smoothness, yerr=std_smoothness, capsize=10, color=color)
     plt.ylabel('Mean Smoothness')
-    plt.title(f'Smoothness Comparison for Category: {category}')
-    plt.savefig(PLOTS_DIR / f'smoothness_comparison_bar_{category}.svg', dpi=300, bbox_inches='tight', facecolor='white')
+    plt.title('Smoothness Comparison')
+    plt.savefig(PLOTS_DIR / 'smoothness_comparison_bar.svg', dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
 
-    print(f"Saved smoothness comparison bar plot to {PLOTS_DIR / f'smoothness_comparison_bar_{category}.svg'}")
+    print(f"Saved smoothness comparison bar plot to {PLOTS_DIR / 'smoothness_comparison_bar.svg'}")

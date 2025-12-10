@@ -103,7 +103,7 @@ class FactorizedInvertibleTransformation(nn.Module):
         # Transpose back to (batch_size, C, H*W) and reshape to (batch_size, C, H, W)
         return x_channel_mixed.transpose(1, 2).view(batch_size, self.C, self.H, self.W)
     
-    def _inverse(self, y):
+    def inverse(self, y):
         """Inverse transformation"""
         batch_size = y.size(0)
         

@@ -36,12 +36,12 @@ def _get_decoder(ckpt_name, dataset_name):
     
     extractor = Extractor()
     train_features, train_labels = run_features(model, train_loader, extractor, device=device)
-    decoder = make_decoder(test_type='classify', device=device)
+    decoder = make_decoder(test_type='classify', device=device, C=1e3)
     decoder.fit(train_features, train_labels)
     return decoder
 
 def get_decoder(ckpt_name, dataset_name):
-    return cached(f"get_decoder_{dataset_name}_{ckpt_name}", rerun=True)(_get_decoder)(ckpt_name, dataset_name)
+    return cached(f"get_decoder_{dataset_name}_{ckpt_name}")(_get_decoder)(ckpt_name, dataset_name)
 
 
 if __name__ == "__main__":

@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
 from .common import *
+from config import ROBERT_STATS
 from .get_localizers import localizers, get_localizer_human, get_localizer_model
 
-ROBERT_STATS = '/mnt/scratch/ytang/datasets/fsaverage_surfaces_robert'
 
 def load_robert_tvals():
     t_vals = []
@@ -24,38 +24,46 @@ def load_robert_tvals():
 
     absvmax = np.max(np.abs(t_vals_mean))
 
-    # from matplotlib import pyplot as plt
-    # from nilearn import datasets, plotting
-    # fsaverage = datasets.fetch_surf_fsaverage(mesh='fsaverage5')
-    # # Plot Left Hemisphere
-    # plotting.plot_surf_stat_map(
-    #     surf_mesh=fsaverage.pial_left,
-    #     stat_map=t_vals_mean[:10242],
-    #     hemi='left',
-    #     bg_map=fsaverage.sulc_left,
-    #     title='Robert t-values (Left Hemisphere)',
-    #     colorbar=True,
-    #     cmap='Spectral',
-    #     vmin=-absvmax,
-    #     vmax=absvmax,
-    # )
-    # plt.savefig(PLOTS_DIR / "robert_left.png")
-    # plt.close()
+    # plot
+    from data.neural_data.collections.tang2025 import get_compilation
 
-    # plotting.plot_surf_stat_map(
-    #     surf_mesh=fsaverage.pial_left,
-    #     stat_map=t_vals_mean[:10242],
-    #     hemi='left',
-    #     bg_map=fsaverage.sulc_left,
-    #     title='Robert t-values (Left Hemisphere)',
-    #     view='ventral',
-    #     colorbar=True,
-    #     cmap='Spectral',
-    #     vmin=-absvmax,
-    #     vmax=absvmax,
-    # )
-    # plt.savefig(PLOTS_DIR / "robert_ventral.png")
-    # plt.close()
+    _, _, _, ceilings = get_compilation(None, return_ceiling=True)
+    t_vals_mean[(ceilings.mean(0) < 0.4)] = np.nan
+
+    from matplotlib import pyplot as plt
+    from nilearn import datasets, plotting
+    fsaverage = datasets.fetch_surf_fsaverage(mesh='fsaverage5')
+    # Plot Left Hemisphere
+    plotting.plot_surf_stat_map(
+        surf_mesh=fsaverage.flat_left,
+        stat_map=-t_vals_mean[:10242],
+        hemi='left',
+        # bg_map=fsaverage.sulc_left,
+        title='Robert t-values (Left Hemisphere)',
+        view='dorsal',
+        colorbar=True,
+        cmap='Spectral',
+        vmin=-absvmax,
+        vmax=absvmax,
+    )
+    plt.savefig(PLOTS_DIR / "robert_left.png", dpi=400, transparent=True)
+    plt.close()
+
+    plotting.plot_surf_stat_map(
+        surf_mesh=fsaverage.infl_left,
+        stat_map=-t_vals_mean[:10242],
+        hemi='left',
+        # bg_map=fsaverage.sulc_left,
+        title='Robert t-values (Left Hemisphere)',
+        view='lateral',
+        colorbar=True,
+        cmap='Spectral',
+        vmin=-absvmax,
+        vmax=absvmax,
+    )
+    plt.savefig(PLOTS_DIR / "robert_left_brain.png", dpi=400, transparent=True)
+    plt.close()
+    exit()
 
     return t_vals
 
@@ -91,7 +99,7 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
         mean_humans = np.array([(t_vals[mask_human]>0).mean() for t_vals in t_vals_robert]) # shape: (n_individuals)
         
         # sometimes model have no units in the ROI
-        mean_models = np.nan_to_num(mean_models, nan=0.0)
+        mean_models = np.nan_to_num(mean_models, nan=0.5)
 
         mean_model = mean_models.mean(0)
         std_model = mean_models.std(0)
@@ -106,26 +114,39 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
         stds_human.append(std_human)
 
     # compute mae between model and human
-    mae = np.mean(np.abs(np.array(means_model) - np.array(means_human)))
-    print(f"Mean Absolute Error (mae) between model and human: {mae:.4f}")
+    mae = np.mean(np.abs(np.array(all_means_model) - np.array(all_means_human).mean(1)[:, None]), axis=0)
+    print(f"Mean Absolute Error (mae) between model and human: {mae.mean():.4f}")
 
     if store_dir is None:
         return mae
 
-    plt.figure(figsize=(4, 3))
+    plt.figure(figsize=(3.7, 2.7))
     x = np.arange(len(rois))
-    width = 0.35
+    width = 0.4
 
-    plt.bar(x - width/2, means_model, width, yerr=np.array(stds_model)*1.5, label='Model', capsize=5, color=MODEL_C)
-    plt.bar(x + width/2, means_human, width, yerr=np.array(stds_human)*1.5, label='Human', capsize=5, color=HUMAN_C)
+    plt.bar(x - width/2, means_model, width, yerr=np.array(stds_model), label='Model', capsize=5, color=MODEL_C)
+    plt.bar(x + width/2, means_human, width, yerr=np.array(stds_human), label='Human', capsize=5, color=HUMAN_C)
 
     for i in range(len(rois)):
-        plt.scatter([x[i] - width/2]*len(all_means_model[i]), all_means_model[i], color='k')
-        plt.scatter([x[i] + width/2]*len(all_means_human[i]), all_means_human[i], color='k')
+        plt.scatter([x[i] - width/2]*len(all_means_model[i]), all_means_model[i], color='k', s=10)
+        plt.scatter([x[i] + width/2]*len(all_means_human[i]), all_means_human[i], color='k', s=10)
 
-    plt.xticks(x, rois)
-    plt.ylabel('Motion Index')
-    plt.legend()
+    roi_display_names = [
+        'Face',
+        'Body',
+        'Place',
+        'MT',
+        'V6',
+        'pSTS',
+    ]
+    plt.xticks(x, roi_display_names)
+    plt.ylabel('Proportion of motion-selective units')
+    plt.ylim(0, 1)
+
+    # despine
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+
     plt.tight_layout()
     plt.savefig(store_dir / 'localizer_tvals_comparison.svg')
     plt.close()
@@ -142,8 +163,11 @@ if __name__ == "__main__":
         'face',
         'body',
         'place',
+        'mt',
         'v6',
         'psts',
+        # 'v6-enhanced',
+        # 'psts-enhanced',
     ]
 
     all_t_vals = []
@@ -153,19 +177,20 @@ if __name__ == "__main__":
         t_vals = t_vals_dicts['robert']
         all_t_vals.append(t_vals)
 
-        if ckpt_name == MODEL_CKPT:
-            # plot the t values for all
-            from matplotlib import pyplot as plt
-            pos = layer_positions[0]
-            plt.scatter(x=pos[:, 0], y=pos[:, 1], c=t_vals, cmap='Spectral', s=1)
-            plt.colorbar(label='t-value')
-            plt.title('Localizer t-values (Robert Dataset)')
-            plt.xlabel('Layer Position X')
-            plt.ylabel('Layer Position Y')
-            plt.gca().set_aspect('equal', adjustable='box')
-            plt.savefig(store_dir / 'localizer_tvals_robert.png')
-            plt.close()
-            print("Model t vals saved.")
+        # if ckpt_name == MODEL_CKPT:
+        #     # plot the t values for all
+        #     from matplotlib import pyplot as plt
+        #     pos = layer_positions[0]
+        #     v_max_abs=np.max(np.abs(t_vals))
+        #     plt.scatter(x=pos[:, 0], y=pos[:, 1], c=-np.array(t_vals), cmap='Spectral', s=1, norm=Normalize(vmin=-v_max_abs, vmax=v_max_abs))
+        #     plt.colorbar(label='t-value')
+        #     plt.title('Localizer t-values (Robert Dataset)')
+        #     plt.xlabel('Layer Position X')
+        #     plt.ylabel('Layer Position Y')
+        #     plt.gca().set_aspect('equal', adjustable='box')
+        #     plt.savefig(store_dir / 'localizer_tvals_robert.png', dpi=400)
+        #     plt.close()
+        #     print("Model t vals saved.")
 
     model_mae = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
 
@@ -187,11 +212,48 @@ if __name__ == "__main__":
 
     unoptimized_mae = plot_all_rois(all_t_vals, UNOPTIMIZED_CKPTS, rois, store_dir=None)
 
+    all_t_vals = []
+    for ckpt_name in SWAPOPT_CKPTS:
+        print(f"Processing checkpoint: {ckpt_name}")
+        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
+        t_vals = t_vals_dicts['robert']
+        all_t_vals.append(t_vals)
+
+    swapopt_mae = plot_all_rois(all_t_vals, SWAPOPT_CKPTS, rois, store_dir=None)
+
     # plot bar comparison
-    plt.figure(figsize=(3, 3))
-    plt.bar(['Model', 'TDANN', 'Unoptimized'], [model_mae, tdann_mae, unoptimized_mae], color=[MODEL_C, DEFAULT_C, DEFAULT_C])
-    plt.ylabel('Mean Absolute Error (mae)')
-    plt.title('Localizer Motion Index mae Comparison')
+    plt.figure(figsize=(3.3, 2.7))
+
+    methods = ['Ours', 'TDANN', 'SwapOpt', 'VJEPA']
+    values = [model_mae.mean(), tdann_mae.mean(), swapopt_mae.mean(), unoptimized_mae.mean()]
+    colors = [MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
+
+    # Assuming you have arrays of individual model results for each method
+    # Replace these with your actual data arrays
+    model_results = [model_mae, tdann_mae, swapopt_mae, unoptimized_mae]
+
+    # Create horizontal bars
+    y_pos = np.arange(len(methods))
+    bars = plt.barh(y_pos, values, color=colors, alpha=1)
+
+    # Plot individual model results as black dots
+    for i, results in enumerate(model_results):
+        plt.plot(results, [i] * len(results), 'ko', markersize=4)
+
+    # Formatting
+    for bar, label in zip(bars, methods):
+        plt.text(0.03, bar.get_y() + bar.get_height() / 2, 
+                label, ha='left', va='center', color='white', fontsize=10)
+
+    # despine
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+
+    # remove y ticks and the sticks
+    plt.yticks([])
+    plt.gca().tick_params(axis='y', length=0)
+
+    plt.xlabel('Mean absolute error', fontsize=12)
     plt.tight_layout()
     plt.savefig(store_dir / 'localizer_motion_mae_comparison.svg')
     plt.close()

@@ -170,7 +170,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
         layer_config_dir = (POSITION_DIR / f"{name}_sd{seed}")
         print(layer_config_dir)
 
-        if not layer_config_dir.exists() or rebuild:
+        if (not layer_config_dir.exists() or rebuild) and not swapopt:
             print("Generating layer positions...")
             get_tissue_configs = _get_tissue_configs_v3 if single_sheet else _get_tissue_configs
             layer_tissue_sizes, layer_neighborhood_widths, layer_rf_overlaps = get_tissue_configs(
@@ -195,7 +195,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                 inf_neighborhood=inf_neighborhood,
             )
         else:
-            print("Loading layer positions...")
+            print(f"Loading layer positions from {layer_config_dir} ...")
             layer_positions = []
             if not single_sheet:
                 for layer_name in extractor.layer_names:
@@ -205,7 +205,8 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                     layer_positions.append(layer_position)
             else:
                 if swapopt:
-                    file_path = layer_config_dir / "backbone.blocks.18.attn.npz"
+                    layer_config_dir = POSITION_DIR / "swapopt" / f"seed{seed}"
+                    file_path = layer_config_dir / "blocks.18.attn.npz"
                 else:
                     file_path = layer_config_dir / "single_sheet.pkl"
                 assert file_path.exists()
@@ -226,8 +227,8 @@ class TopoTransformedVJEPA(TopoTransformedModel):
             # concatenate features along width
             concatenated_features = []
             for feat in layer_features:
-                concatenated_features.append(feat)  # list of (B, C, H, W)
-            concatenated_features = torch.cat(concatenated_features, dim=1)  # (B, C*num_layers, H, W)
+                concatenated_features.append(feat)  # list of (B, T, C, H, W)
+            concatenated_features = torch.cat(concatenated_features, dim=2)  # (B, T, C*num_layers, H, W)
             layer_features = [concatenated_features]
             layer_positions = self.layer_positions
         else:
@@ -270,12 +271,7 @@ class TopoTransformedTDANN(TopoTransformedModel):
         if do_transform:
             pass
 
-        # concatenate features along width
-        concatenated_features = []
-        for feat in layer_features:
-            concatenated_features.append(feat)  # list of (B, C, H, W)
-        concatenated_features = torch.cat(concatenated_features, dim=-1)
-        layer_features = [concatenated_features]
+        assert len(layer_features) == 1
         layer_positions = self.layer_positions
 
         if self.smoothing:

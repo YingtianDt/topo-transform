@@ -10,10 +10,9 @@ import os
 import numpy as np
 from scipy import stats
 
+from config import FLOW
 from utils import cached
 from .utils import t_test, CategoryDataset
-
-FLOW = '/ccn2/u/ynshah/spacetimetorch/datasets/flow_fields'
 
 
 class MovingDataset(CategoryDataset):
@@ -68,18 +67,20 @@ def localize_v6(model, transform,
     n_categories = len(categories)
     t_vals_dict, p_vals_dict = t_test(
         model, transform, 
-        datasets=datasets, contrasts=[(1, -1, -1), (1, 0, -1)],
+        datasets=datasets, contrasts=[(1, -1, 0), (1, -1, -1), (1, 0, -1)],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
     )
 
     t_vals_ret = {
-        "V6": t_vals_dict["coherent_vs_scrambled+static"],
+        "V6": t_vals_dict["coherent_vs_scrambled"],
+        "V6-enhanced": t_vals_dict["coherent_vs_scrambled+static"],
         "MT-Huk": t_vals_dict["coherent_vs_static"],
     }
 
     p_vals_ret = {
-        "V6": p_vals_dict["coherent_vs_scrambled+static"],
+        "V6": p_vals_dict["coherent_vs_scrambled"],
+        "V6-enhanced": p_vals_dict["coherent_vs_scrambled+static"],
         "MT-Huk": p_vals_dict["coherent_vs_static"],
     }
 

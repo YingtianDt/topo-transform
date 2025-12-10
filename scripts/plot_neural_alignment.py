@@ -28,6 +28,7 @@ def plot_neural_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
     """
     # Get the data
     scores_pre, scores_post, mask, ceiling = neural_alignment(ckpt_name, num_splits=num_splits)
+    return
 
     ceiling = ceiling[:, mask]
     

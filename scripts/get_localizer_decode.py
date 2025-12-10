@@ -138,7 +138,6 @@ def localizer_decode(ckpt_name, rois, num_splits=1, fwhm_mm=2.0, resolution_mm=1
 
 if __name__ == "__main__":
     # Example usage
-    ckpt_name = MODEL_CKPT
     num_splits = 1  # Adjust as needed
 
     rois = [
@@ -147,6 +146,17 @@ if __name__ == "__main__":
         'body',
         'v6',
         'psts',
+        'mt',
     ]
 
-    scores  = localizer_decode(ckpt_name, rois, num_splits=num_splits)
+    for ckpt_name in MODEL_CKPTS:
+        model_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
+
+    for ckpt_name in TDANN_CKPTS:
+        tdann_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
+
+    for ckpt_name in UNOPTIMIZED_CKPTS:
+        unoptimized_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
+
+    for ckpt_name in SWAPOPT_CKPTS:
+        swapopt_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)

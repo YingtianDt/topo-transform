@@ -49,7 +49,6 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         
         # Compute autocorrelation for random probe units
         num_probes = min(num_probes, C * H * W)
-        np.random.seed(0)
         probe_indices = np.random.choice(C * H * W, num_probes, replace=False)
         probe_x = x[:, probe_indices]  # [B*T, num_probes]
         autocorrs = np.dot(probe_x.T, x) / x.shape[0]  # [num_probes, N]
@@ -78,16 +77,23 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
             ax = axes[i]
             
             # Use custom colormap with adjusted range to show more variation
-            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap="seismic", 
-                          s=3, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none')
+            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap='RdBu_r', 
+                          s=3, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none', rasterized=True) # EDITED
             ax.scatter(probe_pos[0], probe_pos[1], c='gold', s=100, 
-                      marker='*', linewidths=2, edgecolors='black', zorder=10)
+                      marker='*', linewidths=2, edgecolors='black', zorder=10, rasterized=True) # EDITED
             
             ax.set_xlabel('X Position', fontsize=10)
             ax.set_ylabel('Y Position', fontsize=10)
+            ax.tick_params(axis='x', labelrotation=90) # ADDED
+            ax.tick_params(axis='y', labelrotation=90) # ADDED
             ax.set_title(f'Probe {probe_idx}\n(x={probe_pos[0]:.2f}, y={probe_pos[1]:.2f})', 
                         fontsize=11, pad=10)
+            
             ax.set_aspect('equal')
+            ax.margins(0) # ADDED
+            ax.set_xlim(pos[:, 0].min(), pos[:, 0].max()) # ADDED
+            ax.set_ylim(pos[:, 1].min(), pos[:, 1].max()) # ADDED
+
             ax.set_facecolor('#f8f8f8')
             ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
             
@@ -98,10 +104,13 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         plt.suptitle(f'Layer {l} - Spatial Autocorrelations', fontsize=16, 
                     fontweight='bold', y=1.02)
         plt.tight_layout()
+        # TODO adjust label sizes (right and left)
         
         # Add suffix to filename if provided
-        filename = f'layer_{l}_autocorr{suffix}.png' if suffix else f'layer_{l}_autocorr.png'
-        plt.savefig(dir_path / filename, bbox_inches='tight', dpi=200)
+        filename = f'layer_{l}_autocorr{suffix}.svg' if suffix else f'layer_{l}_autocorr.svg'
+        # filename = f'layer_{l}_autocorr{suffix}.png' if suffix else f'layer_{l}_autocorr.png'
+        # plt.savefig(dir_path / filename, bbox_inches='tight', dpi=200)
+        plt.savefig(dir_path / filename, bbox_inches='tight', dpi=400, format='svg')
         plt.close(fig)
 
         
@@ -129,11 +138,9 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
     # Handle variable dimensions
     if lf.ndim == 5:  # [B, T, C, H, W]
         B, T, C, H, W = lf.shape
-        has_time = True
     else:  # [B, C, H, W]
         B, C, H, W = lf.shape
         T = 1
-        has_time = False
         lf = lf.unsqueeze(1)  # Add time dimension [B, 1, C, H, W]
     
     # Limit number of stimuli
@@ -158,7 +165,7 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
     autocorr = np.dot(probe_x.T, x).flatten() / x.shape[0]  # [N]
     
     # Find highly correlated units in the rightmost region (red cluster)
-    red_cluster_mask = (autocorr > 0.7) & (pos[:, 0] > np.percentile(pos[:, 0], 70))
+    red_cluster_mask = (autocorr > 0.7) & (pos[:, 0] > np.percentile(pos[:, 0], 50))
     red_cluster_indices = np.where(red_cluster_mask)[0]
     
     # Select 2 units close together in the red cluster
@@ -172,9 +179,11 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
             distances_nonzero = distances[close_mask]
             idx2 = close_indices[np.argmin(distances_nonzero)]
         else:
+            print("Warning: No close units found in red cluster, picking another unit.")
             idx2 = red_cluster_indices[0] if red_cluster_indices[0] != idx1 else red_cluster_indices[-1]
     else:
         # Fallback: just pick rightmost units
+        print("Warning: Not enough units in red cluster, picking rightmost units.")
         idx1, idx2 = rightmost_units[-2], rightmost_units[-1]
     
     # Find an anticorrelated unit (far from the cluster)
@@ -184,6 +193,7 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
         idx3 = np.random.choice(anticorr_indices)
     else:
         # Fallback: pick a leftmost unit
+        print("Warning: No anticorrelated units found, picking leftmost unit.")
         idx3 = np.argsort(pos[:, 0])[0]
     
     selected_indices = [idx1, idx2, idx3]
@@ -234,8 +244,9 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
             ax.axvline(x=b * T - 0.5, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
         
         ax.set_ylabel('Activation', fontsize=11)
-        ax.set_title(f'{label}\nPosition: ({pos[idx, 0]:.2f}, {pos[idx, 1]:.2f})', 
-                    fontsize=11, fontweight='bold')
+        # ax.set_title(f'{label}\nPosition: ({pos[idx, 0]:.2f}, {pos[idx, 1]:.2f})', 
+        #             fontsize=11, fontweight='bold')
+        print(f'{label}\nPosition: ({pos[idx, 0]:.2f}, {pos[idx, 1]:.2f})')
         ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
         ax.set_facecolor('#fafafa')
         
@@ -248,7 +259,7 @@ def visualize_unit_activations_over_time(layer_features, layer_positions, dir_pa
                 fontsize=16, fontweight='bold', y=0.995)
     
     filename = f'layer_{layer_idx}_unit_activations{suffix}.png' if suffix else f'layer_{layer_idx}_unit_activations.png'
-    plt.savefig(dir_path / filename, bbox_inches='tight', dpi=200)
+    plt.savefig(dir_path / filename, bbox_inches='tight', dpi=400, format='png')
     plt.close(fig)
 
 
@@ -257,6 +268,6 @@ if __name__ == '__main__':
     viz_dir = PLOTS_DIR / 'plot_autocorr'
     viz_dir.mkdir(parents=True, exist_ok=True)
 
-    seed = 42  # For reproducibility
+    seed = 40 # For reproducibility
     visualize_random_autocorr(all_features, positions, viz_dir, seed=seed)
-    visualize_unit_activations_over_time(all_features, positions, viz_dir, layer_idx=-1, seed=seed)
+    visualize_unit_activations_over_time(all_features, positions, viz_dir, layer_idx=0, seed=seed)

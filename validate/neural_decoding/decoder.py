@@ -4,11 +4,17 @@ import numpy as np
 from .ridgecv import RidgeGCVTorch
 
 
-def make_decoder(test_type, device):
+def make_decoder(test_type, device, **kwargs):
     if test_type == 'classify':
-        decoder = CuMLLogisticRegression(max_iter=10000)
+        if 'C' not in kwargs:
+            kwargs['C'] = 1e3
+        if 'max_iter' not in kwargs:
+            kwargs['max_iter'] = 10000
+        decoder = CuMLLogisticRegression(**kwargs)
     elif test_type.endswith('regress'):
-        decoder = RidgeGCVTorch(alphas=np.logspace(-8, 8, 17), device=device)
+        if 'alphas' not in kwargs:
+            kwargs['alphas'] = np.logspace(-8, 8, 17)
+        decoder = RidgeGCVTorch(alphas=kwargs['alphas'], device=device)
         decoder = PearsonRScore(decoder)
     else:
         raise ValueError(f"Unknown test type: {test_type}")
@@ -79,6 +85,12 @@ class TensorPipeline:
         name, step = self.steps[-1]
         return step.predict(X)
 
+    def predict_proba(self, X):
+        for name, step in self.steps[:-1]:
+            X, _ = step.transform(X, None)
+        name, step = self.steps[-1]
+        return step.predict_proba(X)
+
     def score(self, X, y):
         for name, step in self.steps[:-1]:
             X, y = step.transform(X, y)
@@ -114,6 +126,15 @@ class CuMLLogisticRegression:
             return torch.from_numpy(cp.asnumpy(preds))
         else:
             return cp.asnumpy(preds)
+    
+    def predict_proba(self, X):
+        import cupy as cp
+        X_cu = self._to_cupy(X)
+        probs = self.model.predict_proba(X_cu)
+        if self.return_tensor:
+            return torch.from_numpy(cp.asnumpy(probs))
+        else:
+            return cp.asnumpy(probs)
 
     def score(self, X, y):
         X_cu = self._to_cupy(X)

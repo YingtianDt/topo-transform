@@ -10,11 +10,9 @@ import os
 import numpy as np
 from scipy import stats
 
+from config import BIOLOGICAL_MOTION
 from utils import cached
 from .utils import t_test
-
-
-BIOLOGICAL_MOTION = '/ccn2/u/ynshah/spacetimetorch/datasets/biological-motion'
 
 
 def biomotion_category_dataset(data_dir=BIOLOGICAL_MOTION):
@@ -50,17 +48,19 @@ def localize_psts(model, transform,
     n_categories = len(categories)
     t_vals_dict, p_vals_dict = t_test(
         model, transform, 
-        datasets=datasets, contrasts=[(1, -1, -1), (0, 1, -1)],
+        datasets=datasets, contrasts=[(1, -1, 0), (1, -1, -1), (0, 1, -1)],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
     )
 
     t_vals_ret = {
-        "pSTS": t_vals_dict["normal_dynamic_vs_scrambled_dynamic+scrambled_static"],
+        "pSTS": t_vals_dict["normal_dynamic_vs_scrambled_dynamic"],
+        "pSTS-enhanced": t_vals_dict["normal_dynamic_vs_scrambled_dynamic+scrambled_static"],
         "MT": t_vals_dict["scrambled_dynamic_vs_scrambled_static"],
     }
     p_vals_ret = {
-        "pSTS": p_vals_dict["normal_dynamic_vs_scrambled_dynamic+scrambled_static"],
+        "pSTS": p_vals_dict["normal_dynamic_vs_scrambled_dynamic"],
+        "pSTS-enhanced": p_vals_dict["normal_dynamic_vs_scrambled_dynamic+scrambled_static"],
         "MT": p_vals_dict["scrambled_dynamic_vs_scrambled_static"],
     }
 

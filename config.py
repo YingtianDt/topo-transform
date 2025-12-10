@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-DEBUG = False
+DEBUG = True
 RERUN = False
 YASH = False
 
@@ -46,6 +46,13 @@ ROOT_IMAGENETVID = '/mnt/scratch/akgokce/datasets/imagenet'
 ROOT_AFD101 = '/mnt/scratch/fkolly/datasets/AFD101'
 ROOT_SSV2 = '/mnt/scratch/fkolly/datasets/smthsmthv2'
 ROOT_AFRAZ2006 = '/mnt/scratch/ytang/datasets/afraz2006'
+VPNL = '/mnt/scratch/ytang/datasets/fLoc_stimuli'
+KANWISHER = '/mnt/scratch/ytang/datasets/lahner/stimulus_set/stimuli/localizer'
+FLOW = '/mnt/scratch/ytang/datasets/flow_fields'
+BIOLOGICAL_MOTION = '/mnt/scratch/ytang/datasets/biological-motion'
+ROBERT_STATS = '/mnt/scratch/ytang/datasets/fsaverage_surfaces_robert'
+ROBERT = '/mnt/scratch/ytang/datasets/robert2023'
+
 
 PRETRAINED_DIR = "/mnt/scratch/fkolly/brainmo/pretrained"
 POSITION_DIR = CACHE_DIR / "positions"
@@ -56,4 +63,8 @@ if YASH:
     ROOT_KINETICS400 = '/data2/ynshah/Kinetics400/k400'
     ROOT_IMAGENETVID = '/data2/ynshah/imagenet-vid'
     PRETRAINED_DIR = "/data2/ynshah/tdann-transform/cache/checkpoints"
+    VPNL = '/ccn2/u/ynshah/tdann-transform/cache/datasets/fLoc_stimuli'
+    KANWISHER = '/ccn2/u/ynshah/spacetimetorch/datasets/lahner'
+    FLOW = '/ccn2/u/ynshah/spacetimetorch/datasets/flow_fields'
+    BIOLOGICAL_MOTION = '/ccn2/u/ynshah/spacetimetorch/datasets/biological-motion'
     from spacetorch.paths import POSITION_DIR

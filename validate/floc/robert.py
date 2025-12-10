@@ -10,11 +10,10 @@ import os
 import numpy as np
 from scipy import stats
 
+from config import ROBERT
 from utils import cached
 from .utils import t_test
 
-
-ROBERT = '/mnt/scratch/ytang/datasets/robert2023'
 
 def Robert_category_dataset(data_dir=ROBERT):
     """Create a category dataset for the Robert dataset."""
@@ -38,13 +37,21 @@ def localize_robert(model, transform,
     n_categories = len(categories)
     t_vals_dict, p_vals_dict = t_test(
         model, transform, 
-        datasets=datasets, contrasts=[(1, -1)],
+        datasets=datasets, contrasts=[(1, -1), (1, 0), (0, 1)],
         batch_size=batch_size, device=device, downsampler=downsampler,
         video_fps=video_fps, frames_per_video=frames_per_video
     )
 
-    t_vals_ret = {"robert": t_vals_dict["dynamic_vs_static"]}
-    p_vals_ret = {"robert": p_vals_dict["dynamic_vs_static"]}
+    t_vals_ret = {
+        "robert": t_vals_dict["dynamic_vs_static"],
+        "robert_motion": t_vals_dict["dynamic_vs_baseline"],
+        "robert_static": t_vals_dict["static_vs_baseline"],
+    }
+    p_vals_ret = {
+        "robert": p_vals_dict["dynamic_vs_static"],
+        "robert_motion": p_vals_dict["dynamic_vs_baseline"],
+        "robert_static": p_vals_dict["static_vs_baseline"],
+    }
 
     if ret_pvals:
         return t_vals_ret, p_vals_ret
