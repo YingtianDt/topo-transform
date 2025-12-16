@@ -53,6 +53,15 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         probe_x = x[:, probe_indices]  # [B*T, num_probes]
         autocorrs = np.dot(probe_x.T, x) / x.shape[0]  # [num_probes, N]
 
+        # print the top 10 correlated units for each probe
+        for i, probe_idx in enumerate(probe_indices):
+            autocorr = autocorrs[i]
+            top10_indices = np.argsort(-autocorr)[:10]
+            top10_values = autocorr[top10_indices]
+            print(f"Layer {l} Probe {probe_idx} Top 10 correlated units:")
+            for idx, val in zip(top10_indices, top10_values):
+                print(f"  Unit {idx}: {val:.4f}")
+
         # Set self autocorr to 0 (ignore)
         for i, probe_idx in enumerate(probe_indices):
             autocorrs[i, probe_idx] = 0.0

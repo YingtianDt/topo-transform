@@ -10,10 +10,69 @@ import os
 import numpy as np
 from scipy import stats
 
-from config import ROBERT
+from config import ROBERT, ROBERT_STATS, PLOTS_DIR
 from utils import cached
 from .utils import t_test
 
+
+def load_robert_tvals():
+    t_vals = []
+    for individual in os.listdir(ROBERT_STATS):
+        if not individual.endswith('.npy'):
+            continue
+        t_val = np.load(os.path.join(ROBERT_STATS, individual))
+        t_vals.append(t_val)
+    t_vals = np.array(t_vals)
+    t_vals_mean = t_vals.mean(0)
+
+    absvmax = np.max(np.abs(t_vals_mean))
+
+    # # plot
+    # from data.neural_data.collections.tang2025 import get_compilation
+
+    # _, _, _, ceilings = get_compilation(None, return_ceiling=True)
+    # t_vals_mean[(ceilings.mean(0) < 0.4)] = np.nan
+
+    # from matplotlib import pyplot as plt
+    # from nilearn import datasets, plotting
+    # fsaverage = datasets.fetch_surf_fsaverage(mesh='fsaverage5')
+    # # Plot Left Hemisphere
+    # plotting.plot_surf_stat_map(
+    #     surf_mesh=fsaverage.flat_left,
+    #     stat_map=-t_vals_mean[:10242],
+    #     hemi='left',
+    #     # bg_map=fsaverage.sulc_left,
+    #     title='Robert t-values (Left Hemisphere)',
+    #     view='dorsal',
+    #     colorbar=True,
+    #     cmap='Spectral',
+    #     vmin=-absvmax,
+    #     vmax=absvmax,
+    # )
+    # plt.savefig(PLOTS_DIR / "robert_left.png", dpi=400, transparent=True)
+    # plt.close()
+
+    # plotting.plot_surf_stat_map(
+    #     surf_mesh=fsaverage.infl_left,
+    #     stat_map=-t_vals_mean[:10242],
+    #     hemi='left',
+    #     # bg_map=fsaverage.sulc_left,
+    #     title='Robert t-values (Left Hemisphere)',
+    #     view='lateral',
+    #     colorbar=True,
+    #     cmap='Spectral',
+    #     vmin=-absvmax,
+    #     vmax=absvmax,
+    # )
+    # plt.savefig(PLOTS_DIR / "robert_left_brain.png", dpi=400, transparent=True)
+    # plt.close()
+    # exit()
+
+    return t_vals
+
+def localize_robert_human():
+    t_vals = load_robert_tvals()
+    return {"robert": t_vals.mean(0)}
 
 def Robert_category_dataset(data_dir=ROBERT):
     """Create a category dataset for the Robert dataset."""

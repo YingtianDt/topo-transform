@@ -85,19 +85,29 @@ if __name__ == '__main__':
     tdann_scores, human_scores = plot_localizer_decode(TDANN_CKPTS, store_dir=None)
     unoptimized_scores, human_scores = plot_localizer_decode(UNOPTIMIZED_CKPTS, store_dir=None)
     swapopt_scores, human_scores = plot_localizer_decode(SWAPOPT_CKPTS, store_dir=None)
+    onelayer_scores, human_scores = plot_localizer_decode(ONELAYER_CKPTS, store_dir=None)
 
     human_scores = human_scores.mean(axis=0)
     model_scores = model_scores.mean(axis=0)
     tdann_scores = tdann_scores.mean(axis=0)
     unoptimized_scores = unoptimized_scores.mean(axis=0)
     swapopt_scores = swapopt_scores.mean(axis=0)
+    onelayer_scores = onelayer_scores.mean(axis=0)
+
+    all_scores = [
+        model_scores,
+        tdann_scores,
+        unoptimized_scores,
+        swapopt_scores,
+        onelayer_scores,
+    ]
 
     plt.figure(figsize=(2.2, 2.0))
 
     width = 0.71
-    colors = [MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
-    labels = ['Ours', 'TDANN', 'SwapOpt', 'VJEPA']
-    means = [np.mean(model_scores), np.mean(tdann_scores), np.mean(unoptimized_scores), np.mean(swapopt_scores)]
+    colors = [MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
+    labels = ['Ours', 'TDANN', 'SwapOpt', 'VJEPA', 'OneLayer']
+    means = [np.mean(scores) for scores in all_scores]
 
     bars = plt.barh(labels, means, color=colors, height=width, alpha=1)
 
@@ -106,19 +116,33 @@ if __name__ == '__main__':
         plt.text(0.03, bar.get_y() + bar.get_height() / 2, 
                 label, ha='left', va='center', color='white', fontsize=10)
 
-    for i, (scores, color) in enumerate(zip([model_scores, tdann_scores, unoptimized_scores, swapopt_scores], colors)):
+    for i, (scores, color) in enumerate(zip(all_scores, colors)):
         x = np.ones(len(scores)) * i
         plt.scatter(scores, x, color='k', alpha=1, s=5)
 
     # plt.axvline(human_scores.mean(), color=HUMAN_C, linestyle='-', linewidth=2, label='Human Ceiling')
     ci = 1.96 * human_scores.std()
-    plt.fill_betweenx([-1, 5], human_scores.mean() - ci, human_scores.mean() + ci, color=HUMAN_C, alpha=0.3, edgecolor='none')
+    plt.fill_betweenx([-1, len(labels)], human_scores.mean() - ci, human_scores.mean() + ci, color=HUMAN_C, alpha=0.3, edgecolor='none')
+
+    # test each model against human ceiling
+    for i, scores in enumerate(all_scores):
+        from scipy import stats
+        t_stat, p_value = stats.ttest_ind(scores, human_scores)
+        print(f"{labels[i]} vs Human Ceiling: t={t_stat:.3f}, p={p_value:.5f}")
+        print(f"Mean {labels[i]} score: {np.mean(scores):.3f}, Human ceiling: {human_scores.mean():.3f}")
+
+    # test ours' improvement percentage and significance against others
+    our_scores = all_scores[0]
+    for i, scores in enumerate(all_scores[1:]):
+        improvement = (our_scores - scores) / np.abs(scores) * 100
+        t_stat, p_value = stats.ttest_rel(our_scores, scores)
+        print(f"Ours vs {labels[i+1]}: improvement={improvement.mean():.2f}%, t={t_stat:.3f}, p={p_value:.5f}")
 
     plt.xlabel('Mean prediction score (R)')
 
     # add ceiling as horizontal zone
     plt.yticks([])  # Remove y-axis labels since they're now inside the bars
-    plt.ylim(-.8, 3.8)
+    plt.ylim(-.8, len(labels)-0.2)
     plt.xlim(0, 0.6)
     sns.despine()
     plt.savefig(PLOTS_DIR / 'localizer_decoding_score_comparison.svg', dpi=300, bbox_inches='tight')

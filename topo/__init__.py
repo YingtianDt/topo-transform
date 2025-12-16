@@ -205,8 +205,9 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                     layer_positions.append(layer_position)
             else:
                 if swapopt:
-                    layer_config_dir = POSITION_DIR / "swapopt" / f"seed{seed}"
-                    file_path = layer_config_dir / "blocks.18.attn.npz"
+                    swapopt_type = "swapopt" if not single_sheet else "swapopt_single_sheet"
+                    swapopt_file = "blocks.18.attn.npz" if not single_sheet else "single_sheet.npz"
+                    file_path = POSITION_DIR / swapopt_type / f"seed{seed}" / swapopt_file
                 else:
                     file_path = layer_config_dir / "single_sheet.pkl"
                 assert file_path.exists()

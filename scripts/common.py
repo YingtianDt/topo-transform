@@ -1,11 +1,10 @@
 # MODEL_CKPT = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr5e-5_bs32.pt"
-MODEL_CKPT = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd42.pt"
+MODEL_CKPT = "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd45.pt"
 # MODEL_CKPT = "unoptimized.best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd42.pt"
 # MODEL_CKPT = "tdann.model_final_checkpoint_phase199_seed0.torch"
-# MODEL_CKPT = "swapopt_seed0"
+# MODEL_CKPT = "swapopt_single_sheet_seed0"
 
 MODEL_CKPTS = [
-    # "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr5e-5_bs32.pt",
     "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd42.pt",
     "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd43.pt",
     "best_transformed_model_global_vjepa_14_18_22_single_neighbInf_kinetics400_lr1e-4_bs32_sd44.pt",
@@ -30,6 +29,19 @@ TDANN_CKPTS = [
 ]
 
 SWAPOPT_CKPTS = [
+    # "swapopt_single_sheet_seed0",
+    # "swapopt_single_sheet_seed1",
+    # "swapopt_single_sheet_seed2",
+    # "swapopt_single_sheet_seed3",
+    # "swapopt_single_sheet_seed4",
+    "swapopt_seed0",
+    "swapopt_seed1",
+    "swapopt_seed2",
+    "swapopt_seed3",
+    "swapopt_seed4",
+]
+
+SWAPOPT_ONELAYER_CKPTS = [
     "swapopt_seed0",
     "swapopt_seed1",
     "swapopt_seed2",
@@ -50,7 +62,7 @@ MODEL_C = '#7C8DB0'
 DEFAULT_C = 'gray'
 
 LOCALIZER_P_THRESHOLD = 1e-3
-LOCALIZER_T_THRESHOLD = 6
+LOCALIZER_T_THRESHOLD = 10
 LOCALIZER_BIOMOTION_T_THRESHOLD = 0
 LOCALIZER_FLOW_T_THRESHOLD = 30
 
@@ -91,6 +103,7 @@ roi_groups = {
     "body": ["Bodies_static_localizer", "Bodies_moving_localizer"],
     "place": ["Scenes_static_localizer", "Scenes_moving_localizer"],
     "motion": ["V6", "pSTS", "MT-Huk"],
+    "motion2": ["V6", "pSTS"],
     "V6": ["V6"],
     "MT": ["MT-Huk"],
     "pSTS": ["pSTS"],
@@ -102,5 +115,6 @@ roi_groups = {
         "Faces_moving_localizer", "Bodies_moving_localizer", "Scenes_moving_localizer",
     ],
     "fLoc": ["face", "body", "place", "object"],
+    "fLoc2": ["face", "body", "place"],
     "all": list(all_roi_colors.keys()),
 }

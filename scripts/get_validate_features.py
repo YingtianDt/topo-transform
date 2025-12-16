@@ -39,4 +39,4 @@ def _validate_features(ckpt_name):
     return all_features, positions
 
 def validate_features(ckpt_name: str):
-    return (_validate_features)(ckpt_name)
+    return cached('validate_features', rerun=False)(_validate_features)(ckpt_name)

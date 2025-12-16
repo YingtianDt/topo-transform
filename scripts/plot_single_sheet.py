@@ -63,9 +63,13 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
 
         # assume single layer
         # color the bottom-left channel of the first layer
-        mask = np.zeros(dims, dtype=bool)
-        mask[:1024, :, :] = True
-        mask = mask.flatten()
+        mask1 = np.zeros(dims, dtype=bool)
+        mask1[:1024, 10:13, 0:3] = True
+        mask1 = mask1.flatten()
+
+        mask2 = np.zeros(dims, dtype=bool)
+        mask2[1024:2048, 7:10, 2:5] = True
+        mask2 = mask2.flatten()
 
         # Subsample coordinates for visualization
         if subsample_factor < 1.0:
@@ -73,7 +77,8 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
             subsample_size = max(1, int(num_neurons * subsample_factor))
             selected_indices = np.random.choice(num_neurons, subsample_size, replace=False)
             coords = coords[selected_indices]
-            mask = mask[selected_indices]
+            mask1 = mask1[selected_indices]
+            mask2 = mask2[selected_indices]
         
         # Convert to numpy if tensor
         if torch.is_tensor(coords):
@@ -93,21 +98,28 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
                           z_coords - 0.06,
                           c='black', s=neuron_size * 1.6, alpha=shadow_alpha,
                           edgecolors='none')
-            
-            # Plot all neurons in grey with edge colors for 3D appearance
-            color = np.array(['#808080']*coords.shape[0])
-            if color_dots:
-                for i in range(coords.shape[0]):
-                    if mask[i]:
-                        color[i] = "#66CCFF"  # Highlighted color
+                
+            # Plot all neurons in grey with optional highlighting
+            color = np.array(['#808080'] * coords.shape[0])
+            sizes = np.full(coords.shape[0], neuron_size)
+
+            # if color_dots:
+            #     for i in range(coords.shape[0]):
+            #         if mask1[i]:
+            #             color[i] = "#6392E6"  # Highlighted color
+            #             sizes[i] = neuron_size * 1.5
+            #         if mask2[i]:
+            #             color[i] = "#3AB8E6"  # Highlighted color
+            #             sizes[i] = neuron_size * 1.5
+
             ax.scatter(coords[:, 0], coords[:, 1], z_coords,
-                      color=color,  # Grey color
-                      s=neuron_size, 
-                      alpha=alpha,
-                      edgecolors='white',  # White edges for 3D effect
-                      linewidths=0.3,  # Thin edge line
-                      depthshade=True)  # Enable depth shading
-        
+                    c=color,  # Use 'c' instead of 'color' for array of colors
+                    s=sizes, 
+                    alpha=0.9,
+                    edgecolors='white', 
+                    linewidths=0.2,
+                    depthshade=True)  # Enable depth shading
+            
         # Set viewing angle: azimuth=0 makes x-axis parallel to screen
         ax.view_init(elev=elevation, azim=azimuth)
         
@@ -132,7 +144,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
     plt.tight_layout(pad=0)
     
     if save_path:
-        plt.savefig(save_path, dpi=600, bbox_inches='tight', pad_inches=0)
+        plt.savefig(save_path, dpi=1200, bbox_inches='tight', pad_inches=0, transparent=True)
         print(f"Figure saved to: {save_path}")
     
     plt.close()
@@ -173,7 +185,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
 
         if save_path:
             save_path = save_path.parent / (save_path.stem + "_grid.png")
-            plt.savefig(save_path, dpi=400)
+            plt.savefig(save_path, dpi=400, transparent=True, bbox_inches='tight')
             print(f"Figure saved to: {save_path}")
 
     return fig

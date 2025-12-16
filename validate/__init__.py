@@ -19,9 +19,14 @@ def load_transformed_model(checkpoint_name, device='cuda'):
         print(f"Loaded TopoTransformedTDANN model from {checkpoint_path}.")
         epoch = None
     elif checkpoint_name.startswith("swapopt"):
-        layer_indices = [18]
+        if checkpoint_name.startswith("swapopt_single_sheet"):
+            layer_indices = [14,18,22]
+            single_sheet = True
+        else:
+            layer_indices = [18]
+            single_sheet = False
         seed = _get_seed(checkpoint_name)
-        model = TopoTransformedVJEPA(layer_indices=layer_indices, swapopt=True, inf_neighborhood=False, seed=seed)
+        model = TopoTransformedVJEPA(layer_indices=layer_indices, swapopt=True, inf_neighborhood=False, single_sheet=single_sheet, seed=seed)
         model.name = checkpoint_name
         epoch = None
     else:
@@ -31,7 +36,6 @@ def load_transformed_model(checkpoint_name, device='cuda'):
         else:
             checkpoint_path = config.CACHE_DIR / "checkpoints" / checkpoint_name
             no_transform = False
-        breakpoint()
         if "14_18_22" in checkpoint_name:
             layer_indices = [14,18,22]
         else:

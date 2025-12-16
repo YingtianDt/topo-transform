@@ -9,195 +9,133 @@ from .get_task_performance import task_performance
 
 from .common import *
 
-def plot_task_performance_comparison(ckpt_name):
-    tasks = [
-        "imagenet",
-        "ssv2",
-    ]
-    for task in tasks:
-        _ = task_performance(ckpt_name, task)
 
-def plot_neural_alignment_comparison(ckpt_name, num_splits=1, figsize=(4, 4)):
+def plot_combined_comparison(ckpt_names, num_splits=1, figsize=(3.4, 3.4)):
     """
-    Plot horizontal bar plot comparing pre- and post-transform neural alignment.
+    Plot combined comparison of neural alignment and task performance across multiple checkpoints.
     
     Args:
-        ckpt_name: Name of the checkpoint file
-        num_splits: Number of cross-validation splits
+        ckpt_names: List of checkpoint names or single checkpoint name
+        num_splits: Number of cross-validation splits for neural alignment
         figsize: Figure size (width, height)
     """
-    # Get the data
-    scores_pre, scores_post, mask, ceiling = neural_alignment(ckpt_name, num_splits=num_splits)
-    return
-
-    ceiling = ceiling[:, mask]
+    # Ensure ckpt_names is a list
+    if isinstance(ckpt_names, str):
+        ckpt_names = [ckpt_names]
     
-    # Compute mean scores across voxels for each split
-    mean_pre = scores_pre.mean(axis=1)  # [num_splits]
-    mean_post = scores_post.mean(axis=1)  # [num_splits]
-    mean_ceiling = ceiling.mean(axis=1)  # [num_splits]
+    num_models = len(ckpt_names)
     
-    # Perform paired t-test
-    if num_splits > 1:
-        t_stat, p_value = stats.ttest_rel(mean_post, mean_pre)
-        # Also compute effect size (Cohen's d for paired samples)
-        diff = mean_post - mean_pre
-        cohens_d = diff.mean() / diff.std(ddof=1)
-    else:
-        t_stat, p_value, cohens_d = None, None, None
+    # Collect data for all models
+    neural_pre_all = []
+    neural_post_all = []
+    imagenet_pre_all = []
+    imagenet_post_all = []
+    ssv2_pre_all = []
+    ssv2_post_all = []
     
-    # Compute overall means and ceiling
-    overall_mean_pre = scores_pre.mean()
-    overall_mean_post = scores_post.mean()
-    overall_ceiling = ceiling.mean()
+    for ckpt_name in ckpt_names:
+        # Neural alignment
+        scores_pre, scores_post, mask, ceiling = neural_alignment(ckpt_name, num_splits=num_splits)
+        ceiling_val = ceiling[:, mask].mean()
+        neural_pre_all.append(scores_pre.mean() / ceiling_val)
+        neural_post_all.append(scores_post.mean() / ceiling_val)
+        
+        # Task performance
+        scores_pre, scores_post = task_performance(ckpt_name, "imagenet")
+        imagenet_pre_all.append(scores_pre)
+        imagenet_post_all.append(scores_post)
+        
+        scores_pre, scores_post = task_performance(ckpt_name, "ssv2")
+        ssv2_pre_all.append(scores_pre)
+        ssv2_post_all.append(scores_post)
+    
+    # Convert to arrays
+    neural_pre_all = np.array(neural_pre_all)
+    neural_post_all = np.array(neural_post_all)
+    imagenet_pre_all = np.array(imagenet_pre_all)
+    imagenet_post_all = np.array(imagenet_post_all)
+    ssv2_pre_all = np.array(ssv2_pre_all)
+    ssv2_post_all = np.array(ssv2_post_all)
+    
+    # Prepare data
+    metrics = ['neural\nalignment', 'object\nrecognition', 'action\nrecognition']
+    pre_data = [neural_pre_all, imagenet_pre_all, ssv2_pre_all]
+    post_data = [neural_post_all, imagenet_post_all, ssv2_post_all]
     
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
     
-    # Define positions and colors
-    positions = [0, 1]
-    colors = ['#FA0022', '#959595']  # Gray for original, red for transformed
-    labels = ['Transformed', 'Original']
-    means = [overall_mean_post, overall_mean_pre]
-    split_data = [mean_pre, mean_post]
+    colors = ['#959595', '#FA0022']  # Gray for original, red for transformed
+    bar_height = 0.6
+    y_positions = np.arange(len(metrics)) * 2  # Space out the groups
     
-    # Plot horizontal bars
-    bars = ax.barh(positions, means, height=0.45, color=colors, alpha=1, edgecolor='none')
-    # TODO: std
+    # Plot bars
+    for i, (metric, pre, post) in enumerate(zip(metrics, pre_data, post_data)):
+        y_pre = y_positions[i] + bar_height/2
+        y_post = y_positions[i] - bar_height/2
+        
+        # Compute means and stds
+        mean_pre = pre.mean()
+        mean_post = post.mean()
+        std_pre = pre.std()
+        std_post = post.std()
+        
+        # Plot bars
+        ax.barh(y_pre, mean_pre, height=bar_height, color=colors[0], alpha=1, edgecolor='none')
+        ax.barh(y_post, mean_post, height=bar_height, color=colors[1], alpha=1, edgecolor='none')
+        
+        # # Error bars
+        # if num_models > 1:
+        #     ax.errorbar(mean_pre, y_pre, xerr=std_pre, fmt='none', color='black', 
+        #                linewidth=2, capsize=4, capthick=2, zorder=4)
+        #     ax.errorbar(mean_post, y_post, xerr=std_post, fmt='none', color='black', 
+        #                linewidth=2, capsize=4, capthick=2, zorder=4)
+        
+        # Individual model points
+        if num_models > 1:
+            y_jitter_pre = np.array([y_pre] * len(pre))
+            y_jitter_post = np.array([y_post] * len(post))
+            ax.scatter(pre, y_jitter_pre, color='black', s=17, alpha=1, 
+                      zorder=5, edgecolors='none')
+            ax.scatter(post, y_jitter_post, color='black', s=17, alpha=1, 
+                      zorder=5, edgecolors='none')
+        
+        # T test of pre vs post
+        from scipy.stats import ttest_rel
+        t_stat, p_value = ttest_rel(pre, post)
+        print(f"{metric} T-test: t-stat={t_stat:.4f}, p-value={p_value:.4f}")
+
+        # Add metric label
+        ax.text(-0.04, y_positions[i], metric, ha='right', va='center', 
+                fontsize=10, transform=ax.get_yaxis_transform())
     
-    # Add text labels inside bars
-    for i, (bar, label, mean_val) in enumerate(zip(bars, labels, means)):
-        # Position text in the middle of the bar
-        ax.text(mean_val / 2, bar.get_y() + bar.get_height() / 2, 
-                label, ha='center', va='center', 
-                fontsize=12, color='white')
-    
-    # Plot individual split points
-    for i, (pos, splits) in enumerate(zip(positions, split_data)):
-        # Add jitter to y-position for visibility
-        y_positions = np.random.normal(pos, 0.08, size=len(splits))
-        ax.scatter(splits, y_positions, color='black', s=50, alpha=0.6, 
-                   zorder=3, edgecolors='white', linewidth=2)
-    
-    # Add ceiling as a vertical shaded region
-    mean_ceiling_err = mean_ceiling.std()
-    ax.axvspan(overall_ceiling - mean_ceiling_err, overall_ceiling + mean_ceiling_err, 
-               color='gray', alpha=0.3, label='Ceiling ±1 std')
-    ax.axvline(overall_ceiling, color='gray', linestyle='--', linewidth=2, alpha=0.7)
+    # Legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=colors[0], label='Original'),
+        Patch(facecolor=colors[1], label='Transformed')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', frameon=False, fontsize=9)
     
     # Formatting
-    ax.set_yticks(positions)
-    ax.set_yticklabels([])  # Remove y-tick labels since text is embedded
-    ax.set_xlabel('Neural Alignment Score (normalized R)', fontsize=12)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-0.7, 1.7)
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels([])
+    ax.set_xlabel('Performance', fontsize=12)
+    ax.set_ylim(-1, y_positions[-1] + 1)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    
-    # # Add legend for ceiling
-    # ax.legend(loc='upper right', frameon=False, fontsize=10)
-    
-    # Add title with stats
-    improvement = ((overall_mean_post - overall_mean_pre) / overall_mean_pre) * 100
-    title = f'Neural Alignment Comparison ({num_splits} split{"s" if num_splits > 1 else ""})\n'
-    title += f'Improvement: {improvement:+.1f}% | Ceiling: {overall_ceiling:.3f}'
-    
-    # Add significance info if we have multiple splits
-    if num_splits > 1 and p_value is not None:
-        if p_value < 0.001:
-            sig_str = '***'
-        elif p_value < 0.01:
-            sig_str = '**'
-        elif p_value < 0.05:
-            sig_str = '*'
-        else:
-            sig_str = 'n.s.'
-        title += f' | p={p_value:.4f} {sig_str}'
-    
-    ax.set_title(title, fontsize=13, pad=15)
+    # ax.tick_params(left=False)
     
     plt.tight_layout()
     
-    # Prepare statistics dictionary
-    result_stats = {
-        'pre': overall_mean_pre,
-        'post': overall_mean_post,
-        'ceiling': overall_ceiling,
-        'improvement_pct': improvement,
-        't_stat': t_stat,
-        'p_value': p_value,
-        'cohens_d': cohens_d,
-        'mean_pre_splits': mean_pre,
-        'mean_post_splits': mean_post
-    }
-    
-    return fig, ax, result_stats
+    return fig, ax
 
 
 if __name__ == "__main__":
-
-    tasks = [
-        "imagenet",
-        "ssv2",
-    ]
-
-    for ckpt_name in MODEL_CKPTS:
-        for task in tasks:
-            _ = task_performance(ckpt_name, task)
-        neural_alignment(ckpt_name, num_splits=1)
-
-    exit()
-
     # Example usage
-    ckpt_name = MODEL_CKPT
-    num_splits = 1  # Adjust as needed
-
-    plot_task_performance_comparison(ckpt_name)
-    fig, ax, stats = plot_neural_alignment_comparison(ckpt_name, num_splits=num_splits)
+    ckpt_names = MODEL_CKPTS
     
-    # Print statistics
-    print("\n" + "="*50)
-    print("NEURAL ALIGNMENT COMPARISON RESULTS")
-    print("="*50)
-    print(f"Original (mean ± std):     {stats['pre']:.4f} ± {stats['mean_pre_splits'].std():.4f}")
-    print(f"Transformed (mean ± std):  {stats['post']:.4f} ± {stats['mean_post_splits'].std():.4f}")
-    print(f"Ceiling:                   {stats['ceiling']:.4f}")
-    print(f"Improvement:               {stats['improvement_pct']:+.2f}%")
+    fig, ax = plot_combined_comparison(ckpt_names, num_splits=1)
     
-    if stats['p_value'] is not None:
-        print("\n" + "-"*50)
-        print("PAIRED T-TEST RESULTS")
-        print("-"*50)
-        print(f"t-statistic:               {stats['t_stat']:.4f}")
-        print(f"p-value:                   {stats['p_value']:.6f}")
-        print(f"Cohen's d (effect size):   {stats['cohens_d']:.4f}")
-        
-        if stats['p_value'] < 0.001:
-            sig_level = "highly significant (p < 0.001) ***"
-        elif stats['p_value'] < 0.01:
-            sig_level = "very significant (p < 0.01) **"
-        elif stats['p_value'] < 0.05:
-            sig_level = "significant (p < 0.05) *"
-        else:
-            sig_level = "not significant (p >= 0.05) n.s."
-        
-        print(f"Significance:              {sig_level}")
-        
-        # Interpret effect size
-        if abs(stats['cohens_d']) < 0.2:
-            effect_interp = "negligible"
-        elif abs(stats['cohens_d']) < 0.5:
-            effect_interp = "small"
-        elif abs(stats['cohens_d']) < 0.8:
-            effect_interp = "medium"
-        else:
-            effect_interp = "large"
-        print(f"Effect size interpretation: {effect_interp}")
-    else:
-        print("\nNote: Need at least 2 splits for statistical testing")
-    
-    print("="*50 + "\n")
-    
-    # Save figure
-    plt.savefig(PLOTS_DIR / f'plot_neural_alignment.svg', dpi=300, bbox_inches='tight')
-    plt.show()
+    plt.savefig(PLOTS_DIR / 'plot_combined_comparison.svg', dpi=300, bbox_inches='tight')
+    print(f"Saved plot to {PLOTS_DIR / 'plot_combined_comparison.svg'}")

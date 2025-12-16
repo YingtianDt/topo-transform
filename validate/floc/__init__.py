@@ -7,7 +7,7 @@ from .motion import localize_motion
 from .v6 import localize_v6
 from .psts import localize_psts
 from .pitcher import localize_pitcher, localize_pitcher_human
-from .robert import localize_robert
+from .robert import localize_robert, load_robert_tvals, localize_robert_human
 from .afraz import localize_afraz
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
@@ -135,6 +135,8 @@ def validate_floc_human(
     for dataset_name in dataset_names:
         if dataset_name == "pitcher":
             t_vals_dict = localize_pitcher_human()
+        elif dataset_name == "robert":
+            t_vals_dict = localize_robert_human()
         else:
             raise ValueError(f"Unknown dataset_name for human: {dataset_name}")
         t_vals_dicts.append(t_vals_dict)

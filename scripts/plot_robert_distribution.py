@@ -36,6 +36,10 @@ if __name__ == "__main__":
     t_vals_model = np.array(t_vals_model).mean(axis=0)
     t_vals_human = load_robert_tvals()
 
+    # report mean std of human and model t-vals
+    print(f"Human t-vals range: mean={t_vals_human.mean():.4f}, std={t_vals_human.std():.4f}")
+    print(f"Model t-vals range: mean={t_vals_model.mean():.4f}, std={t_vals_model.std():.4f}")
+
     from validate.rois.nsd import get_region_voxels
 
     high_level = get_region_voxels([
@@ -52,6 +56,10 @@ if __name__ == "__main__":
     plt.figure(figsize=(5, 2.7))
     # plt.hist(t_vals_human, bins=100, alpha=0.5, label='Human', density=True, color=HUMAN_C)
     plt.hist(t_vals_model, bins=100, alpha=1, label='Model', density=True, color=MODEL_C)
+
+    import diptest
+    model_stat, model_p = diptest.diptest(t_vals_model.flatten())
+    print(f"Model t-vals dip test: statistic={model_stat:.4f}, p-value={model_p:.4f}")
 
     # despine
     plt.gca().spines['top'].set_visible(False)

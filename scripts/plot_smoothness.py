@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle
 from matplotlib.lines import Line2D
 import seaborn as sns
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from .common import *
 def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, resolution_mm=1.0, save_dir=PLOTS_DIR):
     """
     Generate bar plots comparing model and human smoothness across categories,
-    and a correlation plot between model and human smoothness values.
+    with separate bars for moving/static conditions and human reference with CI.
     
     Parameters:
     -----------
@@ -75,69 +75,182 @@ def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, res
         else:
             model_smoothness_ci.append(0)
     
-    # Create figure with two subplots - improved aesthetics (vertical layout with horizontal bars)
-    fig, ax1 = plt.subplots(1, 1, figsize=(5, 6))
-    
-    # Set clean style
-    plt.style.use('seaborn-v0_8-whitegrid')
-        
-    # Adjust layout with better spacing
-    plt.tight_layout()
-    
-    # Save figure
-    if save_dir is not None:
-        save_path = f"{save_dir}/smoothness_comparison_{category}.svg"
-        plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        print(f"Plot saved to: {save_path}")
+    # Compute human confidence interval
+    human_mean = np.mean(human_smoothness)
+    human_sem = stats.sem(human_smoothness) if len(human_smoothness) > 1 else 0
+    if len(human_smoothness) > 1:
+        human_ci = stats.t.interval(confidence_level, len(human_smoothness)-1,
+                                   loc=human_mean, scale=human_sem)
+    else:
+        human_ci = (human_mean, human_mean)
 
     # Print statistics
     overall_model_scores = np.array(model_smoothness_mean)
     overall_human_scores = np.array(human_smoothness)
-    print("\n" + "="*50)
-    print("SMOOTHNESS STATISTICS")
-    print("="*50)
-    print(f"Number of models: {len(model_paths)}")
-    print(f"Mean Model Smoothness: {np.mean(overall_model_scores):.4f} ± {np.std(overall_model_scores):.4f}")
-    print(f"Mean Human Smoothness: {np.mean(overall_human_scores):.4f} ± {np.std(overall_human_scores):.4f}")
-    
-    # Category-wise differences
-    print("\nCategory-wise Differences (Model Mean - Human):")
-    for i, cat in enumerate(categories):
-        model_mean = model_smoothness_mean[i]
-        model_ci = model_smoothness_ci[i]
-        human_val = human_smoothness[i]
-        diff = model_mean - human_val
-        print(f"  {cat:15s}: {diff:+.4f} (Model: {model_mean:.4f}±{model_ci:.4f}, Human: {human_val:.4f})")
-    
-    # If multiple models, show variance across models
-    if len(model_paths) > 1:
-        print("\nVariance across models:")
-        for i, cat in enumerate(categories):
-            model_std = model_smoothness_std[i]
-            print(f"  {cat:15s}: SD = {model_std:.4f}")
 
-    plt.close()
-    return overall_model_scores, overall_human_scores
+    # Return data including moving/static breakdown
+    return_data = {
+        'overall_model': overall_model_scores,
+        'overall_human': overall_human_scores,
+        'model_by_category': model_smoothness_all,
+        'human_by_category': human_smoothness,
+        'categories': categories
+    }
+    
+    return return_data
 
 
 if __name__ == '__main__':
-    model_scores, human_scores = plot_smoothness_comparison(MODEL_CKPTS)
-    tdann_scores, human_scores = plot_smoothness_comparison(TDANN_CKPTS, save_dir=None)
-    unoptimized_scores, human_scores = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, save_dir=None)
-    swapopt_scores, human_scores = plot_smoothness_comparison(SWAPOPT_CKPTS, save_dir=None)
+    model_data = plot_smoothness_comparison(MODEL_CKPTS)
+    tdann_data = plot_smoothness_comparison(TDANN_CKPTS, save_dir=None)
+    unoptimized_data = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, save_dir=None)
+    swapopt_data = plot_smoothness_comparison(SWAPOPT_CKPTS, save_dir=None)
+    onelayer_data = plot_smoothness_comparison(ONELAYER_CKPTS, save_dir=None)
     
-    for scores, label, color in zip(
-        [human_scores, model_scores, tdann_scores, unoptimized_scores, swapopt_scores], 
-        ['HUMAN', 'MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT'],
-        [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
-    ):
-        mean_smoothness = np.mean(scores)
-        std_smoothness = np.std(scores)
-        plt.bar(label, mean_smoothness, yerr=std_smoothness, capsize=10, color=color)
-    plt.ylabel('Mean Smoothness')
-    plt.title('Smoothness Comparison')
-    plt.savefig(PLOTS_DIR / 'smoothness_comparison_bar.svg', dpi=300, bbox_inches='tight', facecolor='white')
-    plt.close()
+    # Extract data for each model type
+    all_data = {
+        'HUMAN': model_data['overall_human'],
+        'MODEL': model_data['overall_model'],
+        'TDANN': tdann_data['overall_model'],
+        'UNOPTIMIZED': unoptimized_data['overall_model'],
+        'SWAPOPT': swapopt_data['overall_model'],
+        'ONELAYER': onelayer_data['overall_model']
+    }
+    
+    # Separate moving vs static for each model type
+    all_data_meta = {}
+    for name, data_dict in [('MODEL', model_data), ('TDANN', tdann_data), 
+                            ('UNOPTIMIZED', unoptimized_data), ('SWAPOPT', swapopt_data),
+                            ('ONELAYER', onelayer_data)]:
+        moving_vals_per_model = []
+        static_vals_per_model = []
+        
+        # For each model checkpoint, compute average across categories
+        n_models = len(data_dict['model_by_category'][0])  # Number of model checkpoints
+        
+        for model_idx in range(n_models):
+            moving_avg = []
+            static_avg = []
+            for cat_idx, cat in enumerate(data_dict['categories']):
+                val = data_dict['model_by_category'][cat_idx][model_idx]
+                if 'moving' in cat.lower():
+                    moving_avg.append(val)
+                elif 'static' in cat.lower():
+                    static_avg.append(val)
+            
+            # Each model gets one value per meta category (average across all classes)
+            if moving_avg:
+                moving_vals_per_model.append(np.mean(moving_avg))
+            if static_avg:
+                static_vals_per_model.append(np.mean(static_avg))
+        
+        all_data_meta[name] = {
+            'moving': moving_vals_per_model,
+            'static': static_vals_per_model
+        }
 
-    print(f"Saved smoothness comparison bar plot to {PLOTS_DIR / 'smoothness_comparison_bar.svg'}")
+    # for all models, test moving vs static significance
+    print("\n" + "="*50)
+    print("MOVING vs STATIC SMOOTHNESS COMPARISON")
+    print("="*50)
+    for name in ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']:
+        moving = all_data_meta[name]['moving']
+        static = all_data_meta[name]['static']
+        t_stat, p_value = stats.ttest_ind(moving, static)
+        print(f"{name:12s} - Moving mean: {np.mean(moving):.4f}, Static mean: {np.mean(static):.4f}, Diff: {np.mean(moving) - np.mean(static):+.4f}, t={t_stat:.3f}, p={p_value:.5f}")      
+
+
+    # for all models, show the difference against human 
+    print("\n" + "="*50)
+    print("MODEL vs HUMAN SMOOTHNESS COMPARISON")
+    print("="*50)
+    for name in ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']:
+        model_vals = all_data[name]
+        human_vals = all_data['HUMAN']
+        diff = model_vals - human_vals
+        print(f"{name:12s} - Diff mean, std: {np.mean(diff):+.4f}, {np.std(diff):.4f}")
+
+    # Same for human - but human only has one "model" so list will have one value per category
+    human_moving = []
+    human_static = []
+    for i, cat in enumerate(model_data['categories']):
+        if 'moving' in cat.lower():
+            human_moving.append(model_data['human_by_category'][i])
+        elif 'static' in cat.lower():
+            human_static.append(model_data['human_by_category'][i])
+    
+    # For human, we treat each category as a separate "model" for dot display
+    all_data_meta['HUMAN'] = {'moving': human_moving, 'static': human_static}
+    
+    # Create combined comparison plot with moving/static breakdown
+    fig, ax = plt.subplots(1, 1, figsize=(3.4, 3))
+    
+    # Set white background
+    ax.set_facecolor('white')
+    fig.patch.set_facecolor('white')
+    
+    display_labels = ['Human', 'Ours', 'TDANN', 'SwapOpt', 'VJEPA', 'OneLayer']
+    
+    # Reorder data to match display order (Human first, then models)
+    label_order = ['HUMAN', 'MODEL', 'TDANN', 'SWAPOPT', 'UNOPTIMIZED', 'ONELAYER']
+    
+    # Colors: green for Human, blue for MODEL (Ours), gray for others
+    colors_moving = [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
+    colors_static = ['#8FC794', '#8DB3D6', '#9B9B9B', '#9B9B9B', '#9B9B9B', '#9B9B9B']
+    
+    y_pos = np.arange(len(display_labels))
+    bar_height = 0.37
+    
+    # Calculate means for moving and static separately
+    # Each "dot" will be the average over all classes per meta category
+    moving_means = []
+    static_means = []
+    
+    for label in label_order:
+        # Average across all moving categories
+        moving_means.append(np.mean(all_data_meta[label]['moving']))
+        # Average across all static categories
+        static_means.append(np.mean(all_data_meta[label]['static']))
+    
+    # Plot horizontal bars - moving (darker) and static (lighter)
+    bars_moving = ax.barh(y_pos - bar_height/2, moving_means, height=bar_height,
+                          color=colors_moving, alpha=1, edgecolor='none', label='Moving')
+    bars_static = ax.barh(y_pos + bar_height/2, static_means, height=bar_height,
+                          color=colors_static, alpha=1, edgecolor='none', label='Static')
+    
+    # Add data points as black dots (no jitter, one per meta category)
+    dot_offset = 0.12
+    for i in range(len(display_labels)):
+        if i == 0: continue
+        for m in range(n_models):
+            # Moving dot
+            ax.scatter(all_data_meta[label_order[i]]['moving'][m], y_pos[i] - dot_offset,
+                      color='black', s=5, alpha=1, zorder=10, marker='o')
+            # Static dot
+            ax.scatter(all_data_meta[label_order[i]]['static'][m], y_pos[i] + dot_offset,
+                      color='black', s=5, alpha=1, zorder=10, marker='o')
+    
+    # Customize plot
+    ax.set_xlabel('Spatial autocorrelation (Moran\'s I)', fontsize=10, fontweight='normal')
+    ax.set_yticks([])
+    ax.set_xlim(0, None)
+    
+    # Add white text labels on bars (centered between moving/static)
+    for i, label in enumerate(display_labels):
+        ax.text(0.02, y_pos[i], label,
+               va='center', ha='left', fontsize=10, color='white')
+        ax.text(0.27, y_pos[i]-bar_height/2, 'moving',
+               va='center', ha='left', fontsize=8, color='white')
+        ax.text(0.27, y_pos[i]+bar_height/2, 'static',
+               va='center', ha='left', fontsize=8, color='white')
+    
+    # Remove spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / f'smoothness_comparison_bar.svg', 
+               dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close()
+    
+    print(f"\nSaved smoothness comparison plot to {PLOTS_DIR / f'smoothness_comparison_bar.svg'}")
