@@ -2,16 +2,15 @@
 Saves initial positions for each layer of a given model, initialized retinotopically
 """
 import math
+from pathlib import Path
 import argparse
 from dataclasses import dataclass
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any
 
 from spacetorch.models.positions import (
     LayerPositions,
-    TISSUE_SIZES,
-    NEIGHBORHOOD_WIDTHS,
 )
 from spacetorch.types import Dims, LayerString, VVSRegion
 from spacetorch.utils.spatial_utils import (
@@ -20,8 +19,6 @@ from spacetorch.utils.spatial_utils import (
     place_conv,
     precompute_neighborhoods,
 )
-from spacetorch.utils.generic_utils import load_config_from_yaml
-from config import POSITION_DIR
 
 # script constants
 POS_VERSION = 3  # increment this every time the position scheme changes
@@ -113,6 +110,7 @@ def create_position_dict(cfg: LayerPlacement, inf_neighborhood: bool = False) ->
     }
 
 def create_position_dict_single_sheet(cfgs: List[LayerPlacement]) -> Dict[str, Any]:
+    print(cfgs)
 
     C, H, W = cfgs[0].dims
     overlap = cfgs[0].rf_overlap
@@ -208,18 +206,40 @@ def create_position_dicts(
             logger.info(f"Saving to {save_dir}: single_sheet.pkl")
             layer_positions.save(save_dir)
 
+        print(layer_positions)
+
         ret = [layer_positions]
 
     return ret
 
 
 if __name__ == "__main__":
-    ret = create_position_dicts(
-        {"layer1": [1024, 14, 14], "layer2": [1024, 14, 14]},
-        {"layer1": 1, "layer2": 1},
-        {"layer1": 0.04, "layer2": 0.4},
-    )
+    # ret = create_position_dicts(
+    #     ["layer1", "layer2", "layer3"],
+    #     {"layer1": (1024, 14, 14), "layer2": (1024, 14, 14), "layer3": (1024, 14, 14)},
+    #     {"layer1": 70, "layer2": 70, "layer3": 70},
+    #     {"layer1": 31.818, "layer2": 31.818, "layer3": 31.818},
+    #     {"layer1": 0.1, "layer2": 0.1, "layer3": 0.1},
+    #     single_sheet=True,
+    #     save_dir=Path("/ccn2/u/ynshah/tdann-transform/"),
+    # )
 
-    for k, v in ret.items():
-        print(v)
-        breakpoint()
+    import numpy as np
+    from pathlib import Path
+    import pickle
+
+
+    x = Path("/ccn2/u/ynshah/tdann-transform/single_sheet.pkl")
+
+    with x.open("rb") as stream:
+        y = pickle.load(stream)
+
+    d = {
+        "name": y.name,
+        "dims": y.dims,
+        "coordinates": y.coordinates,
+        "neighborhood_indices": y.neighborhood_indices,
+        "neighborhood_width": y.neighborhood_width,
+    }
+
+    np.savez("/ccn2/u/ynshah/tdann-transform/single_sheet.npz", **d)

@@ -50,7 +50,7 @@ class VJEPASwapopt(nn.Module):
         
         if pretrain_size == 'large':
             vit = vit_large
-            backbone_path = f'/mnt/scratch/ytang/datasets/vitl16_jepa_videomix2m.pt'
+            backbone_path = f'/ccn2/u/ynshah/spacetimetorch/checkpoints/vitl16_jepa_videomix2m/vitl16_jepa_videomix2m.pt'
             head_path = f'{PRETRAINED_DIR}/k400-probe.pth.tar'
             input_dim = 1024
             head_dim = 400

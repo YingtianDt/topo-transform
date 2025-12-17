@@ -20,8 +20,8 @@ def load_transformed_model(checkpoint_name, device='cuda'):
         epoch = None
     elif checkpoint_name == "swapopt":
     #     model = TopoTransformedVJEPA(layer_indices=[14, 18, 22] if not is_swapopt else [18], seed=42, swapopt=is_swapopt, inf_neighborhood=not is_swapopt)
-        layer_indices = [18]
-        model = TopoTransformedVJEPA(layer_indices=layer_indices, swapopt=True, inf_neighborhood=False)
+        layer_indices = [14, 18, 22]
+        model = TopoTransformedVJEPA(layer_indices=layer_indices, swapopt=True, inf_neighborhood=False, single_sheet=True)
         model.name = "swapopt"
         epoch = None
     else:

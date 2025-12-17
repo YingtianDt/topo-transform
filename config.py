@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 DEBUG = True
-RERUN = False
-YASH = False
+RERUN = True
+YASH = True
 
 HOME_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,7 +52,7 @@ POSITION_DIR.mkdir(exist_ok=True, parents=True)
 
 
 if YASH:
-    ROOT_KINETICS400 = '/data2/ynshah/Kinetics400/k400'
-    ROOT_IMAGENETVID = '/data2/ynshah/imagenet-vid'
-    PRETRAINED_DIR = "/data2/ynshah/tdann-transform/cache/checkpoints"
+    ROOT_KINETICS400 = '/ccn2/dataset/kinetics400/Kinetics400/k400'
+    ROOT_IMAGENETVID = '/data2/ynshah/imagenet'
+    PRETRAINED_DIR = "/ccn2/u/ynshah/tdann-transform/cache/checkpoints"
     from spacetorch.paths import POSITION_DIR

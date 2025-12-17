@@ -18,7 +18,7 @@ from git.repo import Repo
 
 
 # try to find the base filesystem
-_base_fs = Path("/data2/ynshah/tdann-transform")
+_base_fs = Path("/ccn2/u/ynshah/tdann-transform")
 assert _base_fs.exists(), f"could not reach base filesystem {_base_fs}"
 
 
@@ -33,16 +33,16 @@ DEFAULT_IMAGENET_VAL_DIR = IMAGENET_DIR / "validation"
 RWAVE_CONTAINER_PATH = DS_DIR / "rwave_python_images"
 
 # project outputs
-PROJ_DIR = _base_fs / "tdann"
+PROJ_DIR = _base_fs
 
 BASE_CHECKPOINT_DIR = PROJ_DIR
-CHECKPOINT_DIR = PROJ_DIR / "checkpoints"
-SUP_CHECKPOINT_DIR = PROJ_DIR / "checkpoints"
+CHECKPOINT_DIR = PROJ_DIR / "cache" /"checkpoints"
+SUP_CHECKPOINT_DIR = PROJ_DIR / "cache" / "checkpoints"
 
-FEATURE_DIR = PROJ_DIR / "features"
-POSITION_DIR = PROJ_DIR / "positions"
-FIGURE_DIR = PROJ_DIR / "figures"
-RESULTS_DIR = PROJ_DIR / "results"
+FEATURE_DIR = PROJ_DIR / "cache" / "features"
+POSITION_DIR = PROJ_DIR / "cache" / "positions"
+FIGURE_DIR = PROJ_DIR / "cache" / "figures"
+RESULTS_DIR = PROJ_DIR / "cache" / "results"
 CACHE_DIR = PROJ_DIR / "cache"
 
 # analysis_config_dir = git_root / "configs" / "analysis_configs"

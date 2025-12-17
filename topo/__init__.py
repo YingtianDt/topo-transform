@@ -205,7 +205,7 @@ class TopoTransformedVJEPA(TopoTransformedModel):
                     layer_positions.append(layer_position)
             else:
                 if swapopt:
-                    file_path = layer_config_dir / "backbone.blocks.14.attn.npz"
+                    file_path = layer_config_dir / "single_sheet.npz"
                 else:
                     file_path = layer_config_dir / "single_sheet.pkl"
                 assert file_path.exists()

@@ -4,8 +4,8 @@ import numpy as np
 import os
 from matplotlib.colors import LinearSegmentedColormap
 
-from .get_validate_features import validate_features
-from .common import MODEL_CKPT
+from get_validate_features import validate_features
+from common import MODEL_CKPT
 from config import PLOTS_DIR
 
 
@@ -59,6 +59,9 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
         probe_indices_.append(probe_indices)
 
     absvmax = max(np.max(np.abs(ac)) for ac in autocorrs_)
+    m = max(np.mean(np.abs(ac)) for ac in autocorrs_)
+    s = max(np.std(ac) for ac in autocorrs_)
+    x = min(absvmax, m + 4 * s)
 
     for l in range(L):
         autocorrs = autocorrs_[l]  # [num_probes, N]
@@ -75,7 +78,7 @@ def visualize_random_autocorr(layer_features, layer_positions, dir_path, num_pro
             ax = axes[i]
             
             # Use custom colormap with adjusted range to show more variation
-            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap=cmap, 
+            sc = ax.scatter(pos[:, 0], pos[:, 1], c=autocorr, cmap="seismic", 
                           s=1.5, vmin=-absvmax, vmax=absvmax, alpha=1, edgecolors='none')
             ax.scatter(probe_pos[0], probe_pos[1], c='gold', s=100, 
                       marker='*', linewidths=2, edgecolors='black', zorder=10)
