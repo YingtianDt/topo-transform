@@ -229,7 +229,11 @@ class TopoTransformedVJEPA(TopoTransformedModel):
             concatenated_features = []
             for feat in layer_features:
                 concatenated_features.append(feat)  # list of (B, T, C, H, W)
-            concatenated_features = torch.cat(concatenated_features, dim=2)  # (B, T, C*num_layers, H, W)
+            if self.swapopt:
+                # for swapopt, features are (B, T, C, H, W)
+                concatenated_features = torch.cat(concatenated_features, dim=-1)  # (B, T, C, H, W*num_layers)
+            else:
+                concatenated_features = torch.cat(concatenated_features, dim=2)  # (B, T, C*num_layers, H, W)
             layer_features = [concatenated_features]
             layer_positions = self.layer_positions
         else:

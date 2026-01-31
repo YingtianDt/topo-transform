@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     plt.xlabel('t-value')
     plt.ylabel('Density')
-    plt.ylim(0, 0.05)
+    # plt.ylim(0, 0.05)
     plt.title('Distribution of model t-values')
     plt.savefig(store_dir / "robert_tval_distribution.svg", bbox_inches='tight')
     plt.close()

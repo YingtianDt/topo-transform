@@ -53,7 +53,7 @@ def plot_all_rois(
                 if isinstance(pos, torch.Tensor):
                     pos = pos.cpu().numpy()
                 
-                if roi_name in ["MT-Huk", "V6"]:
+                if roi_name in ["MT-Huk", "V6", "V6-enhanced"]:
                     t_threshold_used = LOCALIZER_FLOW_T_THRESHOLD
                 elif roi_name in ["pSTS"]:
                     t_threshold_used = LOCALIZER_BIOMOTION_T_THRESHOLD

@@ -149,11 +149,14 @@ if __name__ == '__main__':
             'static': static_vals_per_model
         }
 
+    MODELS = ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']
+    MODELS = ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT']
+
     # for all models, test moving vs static significance
     print("\n" + "="*50)
     print("MOVING vs STATIC SMOOTHNESS COMPARISON")
     print("="*50)
-    for name in ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']:
+    for name in MODELS:
         moving = all_data_meta[name]['moving']
         static = all_data_meta[name]['static']
         t_stat, p_value = stats.ttest_ind(moving, static)
@@ -164,7 +167,7 @@ if __name__ == '__main__':
     print("\n" + "="*50)
     print("MODEL vs HUMAN SMOOTHNESS COMPARISON")
     print("="*50)
-    for name in ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']:
+    for name in MODELS:
         model_vals = all_data[name]
         human_vals = all_data['HUMAN']
         diff = model_vals - human_vals
@@ -190,13 +193,16 @@ if __name__ == '__main__':
     fig.patch.set_facecolor('white')
     
     display_labels = ['Human', 'Ours', 'TDANN', 'SwapOpt', 'VJEPA', 'OneLayer']
+    display_labels = display_labels[:1+len(MODELS)]
     
     # Reorder data to match display order (Human first, then models)
-    label_order = ['HUMAN', 'MODEL', 'TDANN', 'SWAPOPT', 'UNOPTIMIZED', 'ONELAYER']
+    label_order = ['HUMAN'] + MODELS
     
     # Colors: green for Human, blue for MODEL (Ours), gray for others
     colors_moving = [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
     colors_static = ['#8FC794', '#8DB3D6', '#9B9B9B', '#9B9B9B', '#9B9B9B', '#9B9B9B']
+    colors_moving = colors_moving[:1+len(MODELS)]
+    colors_static = colors_static[:1+len(MODELS)]
     
     y_pos = np.arange(len(display_labels))
     bar_height = 0.37
@@ -212,11 +218,17 @@ if __name__ == '__main__':
         # Average across all static categories
         static_means.append(np.mean(all_data_meta[label]['static']))
     
-    # Plot horizontal bars - moving (darker) and static (lighter)
-    bars_moving = ax.barh(y_pos - bar_height/2, moving_means, height=bar_height,
-                          color=colors_moving, alpha=1, edgecolor='none', label='Moving')
-    bars_static = ax.barh(y_pos + bar_height/2, static_means, height=bar_height,
-                          color=colors_static, alpha=1, edgecolor='none', label='Static')
+    # Plot horizontal bars - moving (darker) and static (lighter), exclude Human
+    bars_moving = ax.barh(y_pos[1:] - bar_height/2, moving_means[1:], height=bar_height,
+                          color=colors_moving[1:], alpha=1, edgecolor='none', label='Moving')
+    bars_static = ax.barh(y_pos[1:] + bar_height/2, static_means[1:], height=bar_height,
+                          color=colors_static[1:], alpha=1, edgecolor='none', label='Static')
+
+    # Human reference as vertical dashed lines across the full height
+    ax.axvline(moving_means[0], color=colors_moving[0],
+               linestyle='--', linewidth=2.2, zorder=5)
+    ax.axvline(static_means[0], color=colors_static[0],
+               linestyle='--', linewidth=2.2, zorder=5)
     
     # Add data points as black dots (no jitter, one per meta category)
     dot_offset = 0.12
@@ -237,6 +249,7 @@ if __name__ == '__main__':
     
     # Add white text labels on bars (centered between moving/static)
     for i, label in enumerate(display_labels):
+        if i == 0: continue
         ax.text(0.02, y_pos[i], label,
                va='center', ha='left', fontsize=10, color='white')
         ax.text(0.27, y_pos[i]-bar_height/2, 'moving',

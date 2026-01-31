@@ -117,7 +117,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
                     s=sizes, 
                     alpha=0.9,
                     edgecolors='white', 
-                    linewidths=0.2,
+                    linewidths=0.1,
                     depthshade=True)  # Enable depth shading
             
         # Set viewing angle: azimuth=0 makes x-axis parallel to screen

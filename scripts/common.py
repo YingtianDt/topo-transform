@@ -29,16 +29,11 @@ TDANN_CKPTS = [
 ]
 
 SWAPOPT_CKPTS = [
-    # "swapopt_single_sheet_seed0",
-    # "swapopt_single_sheet_seed1",
-    # "swapopt_single_sheet_seed2",
-    # "swapopt_single_sheet_seed3",
-    # "swapopt_single_sheet_seed4",
-    "swapopt_seed0",
-    "swapopt_seed1",
-    "swapopt_seed2",
-    "swapopt_seed3",
-    "swapopt_seed4",
+    "swapopt_single_sheet_seed0",
+    "swapopt_single_sheet_seed1",
+    "swapopt_single_sheet_seed2",
+    "swapopt_single_sheet_seed3",
+    "swapopt_single_sheet_seed4",
 ]
 
 SWAPOPT_ONELAYER_CKPTS = [
@@ -86,6 +81,8 @@ all_roi_colors = {
     "V6":    ("V6",  (0.00, 0.78, 0.88)),  # softer aqua, less neon, more elegant
     "MT-Huk": ("MT", (0.90, 0.25, 0.65)),  # smoother magenta, high-end look
     "pSTS": ("pSTS", (0.55, 0.45, 0.95)),   # soft lavender–violet
+    "V6-enhanced": ("V6-enhanced", (0.00, 0.60, 0.70)),
+    "pSTS-enhanced": ("pSTS-enhanced", (0.40, 0.30, 0.70)),
 }
 
 all_roi_colors['face'] = all_roi_colors['Faces_moving_localizer']
@@ -104,6 +101,7 @@ roi_groups = {
     "place": ["Scenes_static_localizer", "Scenes_moving_localizer"],
     "motion": ["V6", "pSTS", "MT-Huk"],
     "motion2": ["V6", "pSTS"],
+    "motion3": ["V6-enhanced", "pSTS-enhanced"],
     "V6": ["V6"],
     "MT": ["MT-Huk"],
     "pSTS": ["pSTS"],

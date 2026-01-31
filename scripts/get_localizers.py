@@ -190,7 +190,7 @@ def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=
         t_val_dict.update(t_vals)
 
     def _filter(roi, p_val, t_val):
-        if roi in ["mt", "v6"]:
+        if roi in ["mt", "v6", "v6-enhanced"]:
             t_thres_used = LOCALIZER_FLOW_T_THRESHOLD
         elif roi in ["psts"]:
             t_thres_used = LOCALIZER_BIOMOTION_T_THRESHOLD

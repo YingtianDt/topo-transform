@@ -92,17 +92,22 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
         'MT',
         'V6',
         'pSTS',
+        'V6-enhanced',
+        'pSTS-enhanced',
     ]
-    plt.xticks(x, roi_display_names)
+    if len(rois) == 6:
+        plt.xticks(x, roi_display_names[:6])
+    else:
+        plt.xticks(x, roi_display_names[:len(rois)], rotation=45, ha='right')
     plt.ylabel('Proportion of motion-selective units')
-    plt.ylim(0, 1)
+    plt.ylim(0)
 
     # despine
     plt.gca().spines['top'].set_visible(False)
     plt.gca().spines['right'].set_visible(False)
 
     plt.tight_layout()
-    plt.savefig(store_dir / 'localizer_tvals_comparison.svg')
+    plt.savefig(store_dir / 'localizer_tvals_comparison.svg', bbox_inches='tight')
     plt.close()
 
     print(f"Saved localizer t-values comparison plot to {store_dir / 'localizer_tvals_comparison.svg'}")
@@ -120,8 +125,8 @@ if __name__ == "__main__":
         'mt',
         'v6',
         'psts',
-        # 'v6-enhanced',
-        # 'psts-enhanced',
+        'v6-enhanced',
+        'psts-enhanced',
     ]
 
     # check smoothness first
