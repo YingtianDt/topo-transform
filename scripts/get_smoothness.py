@@ -43,7 +43,7 @@ def smoothness(
         resolution_mm=1.0,
     ):
     cache_key = f"smoothness_{checkpoint_name}_{dataset_name}_{fwhm_mm}_{resolution_mm}"
-    @cached(cache_key)
+    @cached(cache_key, rerun=False)
     def _cached_smoothness():
         return _smoothness(
             checkpoint_name, 

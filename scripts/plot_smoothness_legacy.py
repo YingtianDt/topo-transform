@@ -9,8 +9,15 @@ from scipy import stats
 import pandas as pd
 
 from config import CACHE_DIR, PLOTS_DIR
+from .analysis_utils import (
+    METHOD_COLORS,
+    collect_group_results,
+    resolve_group_names,
+    DEFAULT_METHOD_ORDER,
+)
 from .get_smoothness import smoothness
 from .common import *
+from .plot_utils import savefig
 
 def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, resolution_mm=1.0, save_dir=PLOTS_DIR):
     """
@@ -87,8 +94,7 @@ def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, res
     # Save figure
     if save_dir is not None:
         save_path = f"{save_dir}/smoothness_comparison_{category}.svg"
-        plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
+        savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
         print(f"Plot saved to: {save_path}")
 
     # Print statistics
@@ -122,23 +128,31 @@ def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, res
 
 
 if __name__ == '__main__':
-    model_scores, human_scores = plot_smoothness_comparison(MODEL_CKPTS)
-    tdann_scores, human_scores = plot_smoothness_comparison(TDANN_CKPTS, save_dir=None)
-    unoptimized_scores, human_scores = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, save_dir=None)
-    swapopt_scores, human_scores = plot_smoothness_comparison(SWAPOPT_CKPTS, save_dir=None)
-    onelayer_scores, human_scores = plot_smoothness_comparison(ONELAYER_CKPTS, save_dir=None)
-    
-    for scores, label, color in zip(
-        [human_scores, model_scores, tdann_scores, unoptimized_scores, swapopt_scores, onelayer_scores], 
-        ['HUMAN', 'MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER'],
-        [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
-    ):
+    METHOD_ORDER = DEFAULT_METHOD_ORDER
+    method_order = resolve_group_names(METHOD_ORDER)
+    results = collect_group_results(
+        method_order,
+        plot_smoothness_comparison,
+        rest_kwargs={"save_dir": None},
+    )
+
+    model_scores, human_scores = results[method_order[0]]
+
+    score_sets = [human_scores] + [results[name][0] for name in method_order]
+    labels = ['HUMAN'] + list(method_order)
+    colors = [HUMAN_C] + [METHOD_COLORS[name] for name in method_order]
+
+    for scores, label, color in zip(score_sets, labels, colors):
         mean_smoothness = np.mean(scores)
         std_smoothness = np.std(scores)
         plt.bar(label, mean_smoothness, yerr=std_smoothness, capsize=10, color=color)
     plt.ylabel('Mean Smoothness')
     plt.title('Smoothness Comparison')
-    plt.savefig(PLOTS_DIR / 'smoothness_comparison_bar.svg', dpi=300, bbox_inches='tight', facecolor='white')
-    plt.close()
+    savefig(
+        PLOTS_DIR / "smoothness_comparison_bar.svg",
+        dpi=300,
+        bbox_inches='tight',
+        facecolor='white',
+    )
 
     print(f"Saved smoothness comparison bar plot to {PLOTS_DIR / 'smoothness_comparison_bar.svg'}")

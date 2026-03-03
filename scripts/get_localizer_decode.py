@@ -15,6 +15,7 @@ from models import vit_transform
 from collections import defaultdict
 
 from utils import cached
+from .analysis_utils import collect_by_ckpt
 from .common import *
 from .get_localizers import localizers, get_localizer_human, get_localizer_model
 
@@ -102,7 +103,6 @@ def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, p_thr
                 test_model_acts.append([test_model_acts_roi])
                 test_neural_acts.append(test_neural_acts_roi)
                 
-
             decoder = make_decoder('regress', device)
 
             scores = np.zeros((len(rois), len(rois)))
@@ -134,7 +134,7 @@ def _localizer_decode(ckpt_name, rois, num_splits, fwhm_mm, resolution_mm, p_thr
 def localizer_decode(ckpt_name, rois, num_splits=1, fwhm_mm=2.0, resolution_mm=1.0):
     import hashlib
     rois_code = hashlib.md5('_'.join(sorted(rois)).encode()).hexdigest()[:8]
-    return cached(f"localizer_decode_splits{num_splits}_{ckpt_name}_rois{rois_code}_fwhm{fwhm_mm}_res{resolution_mm}")(_localizer_decode)(ckpt_name, rois=rois, num_splits=num_splits, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
+    return cached(f"localizer_decode_splits{num_splits}_{ckpt_name}_rois{rois_code}_fwhm{fwhm_mm}_res{resolution_mm}", rerun=False)(_localizer_decode)(ckpt_name, rois=rois, num_splits=num_splits, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
 
 if __name__ == "__main__":
     # Example usage
@@ -149,14 +149,5 @@ if __name__ == "__main__":
         'mt',
     ]
 
-    for ckpt_name in MODEL_CKPTS:
-        model_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
-
-    for ckpt_name in TDANN_CKPTS:
-        tdann_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
-
-    for ckpt_name in UNOPTIMIZED_CKPTS:
-        unoptimized_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
-
-    for ckpt_name in SWAPOPT_CKPTS:
-        swapopt_score = localizer_decode(ckpt_name, rois, num_splits=num_splits)
+    for ckpt_list in (UNOPTIMIZED_CKPTS, SWAPOPT_CKPTS):
+        collect_by_ckpt(ckpt_list, localizer_decode, rois, num_splits=num_splits)

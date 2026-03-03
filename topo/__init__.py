@@ -267,6 +267,10 @@ class TopoTransformedTDANN(TopoTransformedModel):
             layer_position = LayerPositions.load(file_path)
             layer_positions.append(layer_position)
 
+        # NOTE
+        for i in range(len(layer_positions)):
+            layer_positions[i].coordinates = layer_positions[i].coordinates * 7  # for some reason, the positions are 7x smaller (cortical size 70mm)
+
         super().__init__(name, model, extractor, layer_positions, transform=None, rebuild=None, seed=42)
 
     def forward(self, inputs, do_transform=True):
@@ -277,8 +281,8 @@ class TopoTransformedTDANN(TopoTransformedModel):
             pass
 
         assert len(layer_features) == 1
-        layer_positions = self.layer_positions
-
+        layer_positions = self.layer_positions 
+    
         if self.smoothing:
             layer_features, layer_positions = self.smooth(layer_features, layer_positions)
 

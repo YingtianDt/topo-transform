@@ -6,16 +6,12 @@ Visualizes neural network layer positions in 3D space similar to cortical tissue
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-import torch
 from pathlib import Path
 
 from config import CACHE_DIR, PLOTS_DIR
 from spacetorch.models.positions import LayerPositions
 
-from .common import MODEL_CKPT
-from validate import load_transformed_model
+from .plot_utils import ensure_dir, savefig, to_numpy
 
 
 POSITION_DIR = CACHE_DIR / "positions"
@@ -81,8 +77,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
             mask2 = mask2[selected_indices]
         
         # Convert to numpy if tensor
-        if torch.is_tensor(coords):
-            coords = coords.cpu().numpy()
+        coords = to_numpy(coords)
         
         # Add depth dimension (z-axis) with spacing between layers
         z_offset = plot_idx * depth_spacing
@@ -144,7 +139,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
     plt.tight_layout(pad=0)
     
     if save_path:
-        plt.savefig(save_path, dpi=1200, bbox_inches='tight', pad_inches=0, transparent=True)
+        savefig(save_path, dpi=1200, bbox_inches='tight', pad_inches=0, transparent=True)
         print(f"Figure saved to: {save_path}")
     
     plt.close()
@@ -185,7 +180,7 @@ def visualize_3d_layers(layer_positions, layer_indices=None,
 
         if save_path:
             save_path = save_path.parent / (save_path.stem + "_grid.png")
-            plt.savefig(save_path, dpi=400, transparent=True, bbox_inches='tight')
+            savefig(save_path, dpi=400, transparent=True, bbox_inches='tight')
             print(f"Figure saved to: {save_path}")
 
     return fig
@@ -196,8 +191,7 @@ if __name__ == "__main__":
     layer_position_dir = "/mnt/scratch/ytang/tdann/cache/positions/vjepa_14_18_22_single_neighbInf_sd42"
 
     # Create save directory if specified
-    save_dir = PLOTS_DIR / "plot_single_sheet"
-    save_dir.mkdir(exist_ok=True, parents=True)
+    save_dir = ensure_dir(PLOTS_DIR / "plot_single_sheet")
     
     # Load layer positions
     print(f"Loading layer positions from directory: {layer_position_dir}")

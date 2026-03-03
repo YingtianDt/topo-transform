@@ -57,9 +57,9 @@ MODEL_C = '#7C8DB0'
 DEFAULT_C = 'gray'
 
 LOCALIZER_P_THRESHOLD = 1e-3
-LOCALIZER_T_THRESHOLD = 10
-LOCALIZER_BIOMOTION_T_THRESHOLD = 0
-LOCALIZER_FLOW_T_THRESHOLD = 30
+LOCALIZER_T_THRESHOLD = 8
+LOCALIZER_BIOMOTION_T_THRESHOLD = 8
+LOCALIZER_FLOW_T_THRESHOLD = 16
 
 
 # Colors
@@ -81,8 +81,10 @@ all_roi_colors = {
     "V6":    ("V6",  (0.00, 0.78, 0.88)),  # softer aqua, less neon, more elegant
     "MT-Huk": ("MT", (0.90, 0.25, 0.65)),  # smoother magenta, high-end look
     "pSTS": ("pSTS", (0.55, 0.45, 0.95)),   # soft lavender–violet
-    "V6-enhanced": ("V6-enhanced", (0.00, 0.60, 0.70)),
-    "pSTS-enhanced": ("pSTS-enhanced", (0.40, 0.30, 0.70)),
+    # "V6-enhanced": ("V6-enhanced", (0.00, 0.60, 0.70)),
+    # "pSTS-enhanced": ("pSTS-enhanced", (0.40, 0.30, 0.70)),
+    "V6-enhanced": ("V6-enhanced", (0.00, 0.78, 0.88)),
+    "pSTS-enhanced": ("pSTS-enhanced", (0.55, 0.45, 0.95)),
 }
 
 all_roi_colors['face'] = all_roi_colors['Faces_moving_localizer']
@@ -91,6 +93,8 @@ all_roi_colors['place'] = all_roi_colors['Scenes_moving_localizer']
 all_roi_colors['mt'] = all_roi_colors['MT-Huk']
 all_roi_colors['v6'] = all_roi_colors['V6']
 all_roi_colors['psts'] = all_roi_colors['pSTS']
+all_roi_colors['v6-enhanced'] = all_roi_colors['V6-enhanced']
+all_roi_colors['psts-enhanced'] = all_roi_colors['pSTS-enhanced']
 
 roi_groups = {
     "face-response": ["Faces_static", "Faces_moving"],
@@ -102,6 +106,7 @@ roi_groups = {
     "motion": ["V6", "pSTS", "MT-Huk"],
     "motion2": ["V6", "pSTS"],
     "motion3": ["V6-enhanced", "pSTS-enhanced"],
+    "motion4": ["MT-Huk", "V6-enhanced", "pSTS-enhanced"],
     "V6": ["V6"],
     "MT": ["MT-Huk"],
     "pSTS": ["pSTS"],

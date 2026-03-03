@@ -1,21 +1,27 @@
 from config import PLOTS_DIR
 
-import torch
-
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
+from .analysis_utils import (
+    DEFAULT_METHOD_ORDER,
+    METHOD_COLORS,
+    METHOD_LABELS,
+    collect_localizer_tvals,
+    resolve_group_names,
+    CKPT_GROUPS,
+)
 from .common import *
-from .get_localizers import localizers, get_localizer_human, get_localizer_model
+from .get_localizers import get_localizer_human, get_localizer_model
 from validate.floc.robert import load_robert_tvals
 from .get_smoothness import smoothness
+from .plot_utils import ensure_dir, savefig
 
 
 def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER_P_THRESHOLD, t_threshold=LOCALIZER_T_THRESHOLD):
     if store_dir is not None:
-        os.makedirs(store_dir, exist_ok=True)
+        store_dir = ensure_dir(store_dir)
 
     masks_models = [[] for _ in rois]
     for ckpt in ckpts:
@@ -36,7 +42,7 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
         
         t_vals_models = []
         for t_vals, mask in zip(all_t_vals, mask_model):
-            t_vals_model = [t_val[mask] for t_val, mask in zip(t_vals, mask)]  # layers
+            t_vals_model = [t_val[m] for t_val, m in zip(t_vals, mask)]  # layers
             # here just choose the first layer
             t_vals_model = t_vals_model[0]  # shape: (n_units,)
             t_vals_models.append(t_vals_model)
@@ -107,16 +113,14 @@ def plot_all_rois(all_t_vals, ckpts, rois, store_dir=None, p_threshold=LOCALIZER
     plt.gca().spines['right'].set_visible(False)
 
     plt.tight_layout()
-    plt.savefig(store_dir / 'localizer_tvals_comparison.svg', bbox_inches='tight')
-    plt.close()
-
-    print(f"Saved localizer t-values comparison plot to {store_dir / 'localizer_tvals_comparison.svg'}")
+    path = store_dir / "localizer_tvals_comparison.svg"
+    savefig(path, bbox_inches='tight')
+    print(f"Saved localizer t-values comparison plot to {path}")
 
     return mae
 
 if __name__ == "__main__":
-    store_dir = PLOTS_DIR
-    store_dir.mkdir(parents=True, exist_ok=True)
+    store_dir = ensure_dir(PLOTS_DIR / "localizer_motion")
 
     rois = [
         'face',
@@ -125,13 +129,16 @@ if __name__ == "__main__":
         'mt',
         'v6',
         'psts',
-        'v6-enhanced',
-        'psts-enhanced',
     ]
 
     # check smoothness first
+    METHOD_ORDER = DEFAULT_METHOD_ORDER
+    method_order = resolve_group_names(METHOD_ORDER)
+    primary_group = "TopoTransform" if "TopoTransform" in method_order else method_order[0]
+    primary_ckpts = CKPT_GROUPS[primary_group]
+
     all_model_results = []
-    for i, model_path in enumerate(MODEL_CKPTS):
+    for i, model_path in enumerate(primary_ckpts):
         ret = smoothness(model_path, 'robert')
         all_model_results.append(ret)
     # report mean smoothness
@@ -145,73 +152,53 @@ if __name__ == "__main__":
     print(f"Model smoothness: mean={np.mean(model_smoothness):.4f}")
     print(f"Human smoothness: mean={np.mean(human_smoothness):.4f}")
     
-    all_t_vals = []
-    for ckpt_name in MODEL_CKPTS:
-        print(f"Processing checkpoint: {ckpt_name}")
-        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
+    def _maybe_plot_robert_tvals(ckpt_name, t_vals_dicts, p_vals_dicts, layer_positions):
+        if ckpt_name != MODEL_CKPT:
+            return
         t_vals = t_vals_dicts['robert']
-        all_t_vals.append(t_vals)
+        pos = layer_positions[0]
+        v_max_abs = np.max(np.abs(t_vals))
+        plt.scatter(
+            x=pos[:, 0],
+            y=pos[:, 1],
+            c=-np.array(t_vals),
+            cmap='Spectral',
+            s=1,
+            norm=Normalize(vmin=-v_max_abs, vmax=v_max_abs),
+        )
+        plt.colorbar(label='t-value')
+        plt.title('Localizer t-values (Robert Dataset)')
+        plt.xlabel('Layer Position X')
+        plt.ylabel('Layer Position Y')
+        plt.gca().set_aspect('equal', adjustable='box')
+        savefig(store_dir / "localizer_tvals_robert.png", dpi=400)
+        print("Model t vals saved.")
 
-        if ckpt_name == MODEL_CKPT:
-            # plot the t values for all
-            from matplotlib import pyplot as plt
-            pos = layer_positions[0]
-            v_max_abs=np.max(np.abs(t_vals))
-            plt.scatter(x=pos[:, 0], y=pos[:, 1], c=-np.array(t_vals), cmap='Spectral', s=1, norm=Normalize(vmin=-v_max_abs, vmax=v_max_abs))
-            plt.colorbar(label='t-value')
-            plt.title('Localizer t-values (Robert Dataset)')
-            plt.xlabel('Layer Position X')
-            plt.ylabel('Layer Position Y')
-            plt.gca().set_aspect('equal', adjustable='box')
-            plt.savefig(store_dir / 'localizer_tvals_robert.png', dpi=400)
-            plt.close()
-            print("Model t vals saved.")
-
-    model_mae = plot_all_rois(all_t_vals, MODEL_CKPTS, rois, store_dir)
-
-    all_t_vals = []
-    for ckpt_name in TDANN_CKPTS:
-        print(f"Processing checkpoint: {ckpt_name}")
-        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
-        t_vals = t_vals_dicts['robert']
-        all_t_vals.append(t_vals)
-
-    tdann_mae = plot_all_rois(all_t_vals, TDANN_CKPTS, rois, store_dir=None)
-
-    all_t_vals = []
-    for ckpt_name in UNOPTIMIZED_CKPTS:
-        print(f"Processing checkpoint: {ckpt_name}")
-        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
-        t_vals = t_vals_dicts['robert']
-        all_t_vals.append(t_vals)
-
-    unoptimized_mae = plot_all_rois(all_t_vals, UNOPTIMIZED_CKPTS, rois, store_dir=None)
-
-    all_t_vals = []
-    for ckpt_name in SWAPOPT_CKPTS:
-        print(f"Processing checkpoint: {ckpt_name}")
-        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
-        t_vals = t_vals_dicts['robert']
-        all_t_vals.append(t_vals)
-
-    swapopt_mae = plot_all_rois(all_t_vals, SWAPOPT_CKPTS, rois, store_dir=None)
-
-    all_t_vals = []
-    for ckpt_name in ONELAYER_CKPTS:
-        print(f"Processing checkpoint: {ckpt_name}")
-        t_vals_dicts, p_vals_dicts, layer_positions = localizers(ckpt_name, ret_merged=True)
-        t_vals = t_vals_dicts['robert']
-        all_t_vals.append(t_vals)
-
-    onelayer_mae = plot_all_rois(all_t_vals, ONELAYER_CKPTS, rois, store_dir=None)
+    mae_by_method = {}
+    for i, name in enumerate(method_order):
+        ckpts = CKPT_GROUPS[name]
+        group_store_dir = ensure_dir(store_dir / name.lower())
+        all_t_vals = collect_localizer_tvals(
+            ckpts,
+            dataset='robert',
+            ret_merged=True,
+            on_result=_maybe_plot_robert_tvals if name == primary_group else None,
+        )
+        mae_by_method[name] = plot_all_rois(
+            all_t_vals,
+            ckpts,
+            rois,
+            group_store_dir,
+        )
 
     # plot bar comparison
     plt.figure(figsize=(3.3, 2.7))
 
-    maes = [model_mae, tdann_mae, swapopt_mae, unoptimized_mae, onelayer_mae]
-    methods = ['Ours', 'TDANN', 'SwapOpt', 'VJEPA', 'OneLayer']
+    maes = [mae_by_method[name] for name in method_order]
+    methods = [METHOD_LABELS[name] for name in method_order]
     values = [mae.mean() for mae in maes]
-    colors = [MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
+    colors = [METHOD_COLORS[name] for name in method_order]
+    model_mae = maes[0]
 
     # Assuming you have arrays of individual model results for each method
     # Replace these with your actual data arrays
@@ -239,8 +226,7 @@ if __name__ == "__main__":
 
     plt.xlabel('Mean absolute error', fontsize=12)
     plt.tight_layout()
-    plt.savefig(store_dir / 'localizer_motion_mae_comparison.svg')
-    plt.close()
+    savefig(store_dir / "localizer_motion_mae_comparison.svg")
 
     # report model mae over other methods, with stats
     from scipy.stats import ttest_ind

@@ -29,14 +29,23 @@ class LayerPerturbation:
             output_multiple = True
 
         changes = self._changes
-        transform = getattr(layer_module, '_transform')
+        transform = getattr(layer_module, '_transform', None)
+        if transform is None:
+            raise AttributeError("Layer module missing _transform; did you call bind_transforms()?")
 
         # assume VJEPA
         B, L, C = output.shape
-        output = output.reshape(B, -1, 14, 14, C)  # (B, T, H, W, C)
+        H = getattr(transform, "H", None)
+        W = getattr(transform, "W", None)
+        if H is None or W is None:
+            raise AttributeError("Transform missing H/W; cannot infer spatial dims.")
+        if L % (H * W) != 0:
+            raise ValueError(f"Output length {L} not divisible by H*W ({H}*{W}).")
+        T = L // (H * W)
+        output = output.reshape(B, T, H, W, C)  # (B, T, H, W, C)
         output = output.permute(0, 1, 4, 2, 3)  # (B, T, C, H, W)
 
-        output = output.reshape(-1, C, 14, 14)  # (B*T, C, H, W)
+        output = output.reshape(-1, C, H, W)  # (B*T, C, H, W)
         result = transform(output)
 
         if hasattr(result, 'device'):
@@ -44,7 +53,7 @@ class LayerPerturbation:
         
         result = self._change_function(result, changes)
         stimulated_output = transform.inverse(result)
-        stimulated_output = stimulated_output.reshape(B, -1, C, 14, 14)  # (B, T, C, H, W)
+        stimulated_output = stimulated_output.reshape(B, -1, C, H, W)  # (B, T, C, H, W)
 
         stimulated_output = stimulated_output.permute(0, 1, 3, 4, 2)  # (B, T, H, W, C)
         stimulated_output = stimulated_output.reshape(B, L, C)  # (B, L, C)
@@ -133,6 +142,9 @@ class TopoModelPerturbation:
                 location, 
                 **perturbation_params
             )
+            if isinstance(changes, np.ndarray) and changes.ndim == 1:
+                C, H, W = layer_pos.dims
+                changes = changes.reshape(C, H, W)
             layer_name = self.topo_model.layer_names[layer_idx]
             layer_module = self._get_layer_module(layer_name)
             identifier_layer = layer_name
@@ -183,6 +195,14 @@ class OptogeneticSuppression(TopoModelPerturbation):
         magnitude = fiber_output_power_mW  # ≥1 mW → 100% suppression (Chow et al. 2010)
         spread = gaussian_spread(location, self._cov, neuron_locs)
         changes = np.maximum(1 - (magnitude * spread), 0)
+        return changes, operator.mul
+
+
+class UnitAblation(TopoModelPerturbation):
+    def compute_changes(self, neuron_locs, location, ablation_radius_mm, **kwargs):
+        distances = np.linalg.norm(neuron_locs - location, axis=1)
+        changes = np.ones_like(distances, dtype=float)
+        changes[distances <= ablation_radius_mm] = 0.0
         return changes, operator.mul
 
 

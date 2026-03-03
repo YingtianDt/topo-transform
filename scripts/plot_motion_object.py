@@ -1,20 +1,14 @@
 from config import PLOTS_DIR
-
-import torch
-
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
 
 from .common import *
-from config import ROBERT_STATS
-from .get_localizers import localizers, get_localizer_human, get_localizer_model
+from .get_localizers import localizers, get_localizer_model
+from .plot_utils import ensure_dir, savefig
 
 
 if __name__ == "__main__":
-    store_dir = PLOTS_DIR
-    store_dir.mkdir(parents=True, exist_ok=True)
+    store_dir = ensure_dir(PLOTS_DIR)
 
     rois = [
         'face',
@@ -64,7 +58,6 @@ if __name__ == "__main__":
     plt.ylabel('Motion t-value')
     plt.title('Model Localizer: Motion vs Object')
     plt.legend(markerscale=5)
-    plt.savefig(store_dir / 'model_localizer_motion_vs_object.png')
-    plt.close()
-
-    print('Saved plot to', store_dir / 'model_localizer_motion_vs_object.png')
+    path = store_dir / "model_localizer_motion_vs_object.png"
+    savefig(path)
+    print("Saved plot to", path)

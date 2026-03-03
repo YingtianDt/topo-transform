@@ -117,7 +117,7 @@ def validate_smoothness(
         human_lh_t_vals = human_lh_t_val_dict[cate]
         human_rh_t_vals = human_rh_t_val_dict[cate]
 
-        model_smoothness = Moran(model_t_vals, model_w).I
+        model_smoothness = _moran_ignore_nans(model_t_vals, model_w)
         human_lh_smoothness = compute_morans_I_neural(human_lh_t_vals, human_lh_adj_list)
         human_rh_smoothness = compute_morans_I_neural(human_rh_t_vals, human_rh_adj_list)
         human_smoothness = (human_lh_smoothness + human_rh_smoothness) / 2.0
@@ -130,6 +130,29 @@ def validate_smoothness(
         }
 
     return smoothness_results
+
+def _moran_ignore_nans(values, w):
+    mask = np.isfinite(values)
+    if mask.all():
+        return Moran(values, w).I
+    kept = np.flatnonzero(mask)
+    if kept.size < 2:
+        return np.nan
+    old_to_new = {int(old): new for new, old in enumerate(kept)}
+    neighbors = {}
+    weights = {}
+    for old_idx in kept:
+        old_idx = int(old_idx)
+        nbrs = []
+        wts = []
+        for nbr, wt in zip(w.neighbors.get(old_idx, []), w.weights.get(old_idx, [])):
+            if nbr in old_to_new:
+                nbrs.append(old_to_new[nbr])
+                wts.append(wt)
+        neighbors[old_to_new[old_idx]] = nbrs
+        weights[old_to_new[old_idx]] = wts
+    w_sub = lp.weights.W(neighbors, weights, silence_warnings=True)
+    return Moran(values[mask], w_sub).I
 
 def _filter_high_regions(t_val_dict):
     sel = NSD_HIGH
@@ -178,7 +201,7 @@ def compute_activity_smoothness_model(activity, model):
     model_w = weights.lat2W(*model_sheet_dims[-2:])
     smoothness = []
     for b in tqdm(range(B), desc="Computing model smoothness"):
-        s = Moran(activity[b], model_w).I
+        s = _moran_ignore_nans(activity[b], model_w)
         smoothness.append(s)
     smoothness = np.array(smoothness)
     return smoothness

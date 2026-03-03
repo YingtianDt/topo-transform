@@ -7,6 +7,7 @@ from scipy import stats
 from .get_neural_alignment import neural_alignment
 from .get_task_performance import task_performance
 
+from .analysis_utils import CKPT_GROUPS, resolve_group_names
 from .common import *
 
 
@@ -133,7 +134,11 @@ def plot_combined_comparison(ckpt_names, num_splits=1, figsize=(3.4, 3.4)):
 
 if __name__ == "__main__":
     # Example usage
-    ckpt_names = MODEL_CKPTS
+    METHOD_ORDER = ("MODEL",)
+    method_order = resolve_group_names(METHOD_ORDER)
+    ckpt_names = []
+    for name in method_order:
+        ckpt_names.extend(CKPT_GROUPS[name])
     
     fig, ax = plot_combined_comparison(ckpt_names, num_splits=1)
     

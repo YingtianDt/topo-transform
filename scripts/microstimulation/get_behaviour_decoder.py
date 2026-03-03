@@ -15,7 +15,16 @@ from models import vit_transform
 
 from utils import cached
 from scripts.common import *
-from .utils import Extractor, _Dataset
+from .utils import _Dataset
+
+
+class MultiLayerExtractor:
+    def __call__(self, model, inputs, average_time=True):
+        # Use the transformed topo model to get all target layers.
+        layer_features, _ = model(inputs, do_transform=True)
+        if average_time:
+            layer_features = [feat.mean(dim=1) for feat in layer_features]  # B x C x H x W
+        return torch.cat(layer_features, dim=1)  # B x (sum C) x H x W
 
 
 def _get_decoder(ckpt_name, dataset_name):
@@ -34,14 +43,14 @@ def _get_decoder(ckpt_name, dataset_name):
     tr = _Dataset(dataset.trainset)
     train_loader = get_data_loader(tr, batch_size=batch_size, shuffle=True, num_workers=batch_size)
     
-    extractor = Extractor()
+    extractor = MultiLayerExtractor()
     train_features, train_labels = run_features(model, train_loader, extractor, device=device)
     decoder = make_decoder(test_type='classify', device=device, C=1e3)
     decoder.fit(train_features, train_labels)
     return decoder
 
 def get_decoder(ckpt_name, dataset_name):
-    return cached(f"get_decoder_{dataset_name}_{ckpt_name}")(_get_decoder)(ckpt_name, dataset_name)
+    return cached(f"get_decoder_multilayer_{dataset_name}_{ckpt_name}")(_get_decoder)(ckpt_name, dataset_name)
 
 
 if __name__ == "__main__":

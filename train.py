@@ -165,7 +165,7 @@ def train_model(model, train_loader, val_loader, criterion, config_id, storage, 
                 wandb.log({'best_model_epoch': epoch + 1})
         
         # Periodic checkpoint
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 1 == 0:
             torch.save({
                 'epoch': epoch, 'config_id': config_id, 
                 'transformed_model_state_dict': model.state_dict(),

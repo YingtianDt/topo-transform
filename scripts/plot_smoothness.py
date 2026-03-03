@@ -1,269 +1,378 @@
-import torch
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch, Rectangle
-from matplotlib.lines import Line2D
-import seaborn as sns
-from tqdm import tqdm
-from scipy import stats
-import pandas as pd
 
-from config import CACHE_DIR, PLOTS_DIR
+from config import PLOTS_DIR
+from .analysis_utils import CKPT_GROUPS, METHOD_COLORS, METHOD_LABELS
+from .common import MODEL_CKPT
 from .get_smoothness import smoothness
-from .common import *
+from .plot_utils import savefig
 
-def plot_smoothness_comparison(model_paths, category='pitcher', fwhm_mm=2.0, resolution_mm=1.0, save_dir=PLOTS_DIR):
-    """
-    Generate bar plots comparing model and human smoothness across categories,
-    with separate bars for moving/static conditions and human reference with CI.
-    
-    Parameters:
-    -----------
-    model_paths : str or list of str
-        Path(s) to the model checkpoint(s). If multiple paths provided, will compute
-        mean and confidence intervals across models.
-    category : str
-        Category name for analysis
-    fwhm_mm : float
-        FWHM for smoothing in mm
-    resolution_mm : float
-        Resolution in mm
-    save_dir : str, optional
-        Directory to save plots. If None, uses PLOTS_DIR from config
-    """
-    
-    # Convert single model path to list
-    if isinstance(model_paths, str):
-        model_paths = [model_paths]
-    
-    # Get smoothness data for all models
-    print(f"Computing smoothness for {len(model_paths)} model(s), category: {category}")
-    
-    all_model_results = []
-    for i, model_path in enumerate(model_paths):
-        print(f"  Model {i+1}/{len(model_paths)}: {model_path}")
-        ret = smoothness(model_path, category, fwhm_mm=fwhm_mm, resolution_mm=resolution_mm)
-        all_model_results.append(ret)
-    
-    # Prepare data for plotting - aggregate across models
-    categories = list(all_model_results[0].keys())
-    
-    # Collect model smoothness values across all models
-    model_smoothness_all = []  # List of lists: [model][category]
-    human_smoothness = []  # Human data (same across models)
-    
-    for cat in categories:
-        model_vals = [result[cat]['model_smoothness'] for result in all_model_results]
-        model_smoothness_all.append(model_vals)
-        # Human smoothness is the same for all models, just take from first
-        human_smoothness.append(all_model_results[0][cat]['human_smoothness'])
-    
-    # Compute statistics across models
-    model_smoothness_mean = [np.mean(vals) for vals in model_smoothness_all]
-    model_smoothness_std = [np.std(vals) for vals in model_smoothness_all]
-    model_smoothness_sem = [stats.sem(vals) if len(vals) > 1 else 0 for vals in model_smoothness_all]
-    
-    # 95% confidence interval
-    confidence_level = 0.95
-    model_smoothness_ci = []
-    for vals in model_smoothness_all:
-        if len(vals) > 1:
-            ci = stats.t.interval(confidence_level, len(vals)-1, 
-                                 loc=np.mean(vals), 
-                                 scale=stats.sem(vals))
-            model_smoothness_ci.append((ci[1] - np.mean(vals)))  # Half-width of CI
-        else:
-            model_smoothness_ci.append(0)
-    
-    # Compute human confidence interval
-    human_mean = np.mean(human_smoothness)
-    human_sem = stats.sem(human_smoothness) if len(human_smoothness) > 1 else 0
-    if len(human_smoothness) > 1:
-        human_ci = stats.t.interval(confidence_level, len(human_smoothness)-1,
-                                   loc=human_mean, scale=human_sem)
-    else:
-        human_ci = (human_mean, human_mean)
-
-    # Print statistics
-    overall_model_scores = np.array(model_smoothness_mean)
-    overall_human_scores = np.array(human_smoothness)
-
-    # Return data including moving/static breakdown
-    return_data = {
-        'overall_model': overall_model_scores,
-        'overall_human': overall_human_scores,
-        'model_by_category': model_smoothness_all,
-        'human_by_category': human_smoothness,
-        'categories': categories
-    }
-    
-    return return_data
+DATASET_NAME = "pitcher"
+DEFAULT_FWHM = 2.0
 
 
-if __name__ == '__main__':
-    model_data = plot_smoothness_comparison(MODEL_CKPTS)
-    tdann_data = plot_smoothness_comparison(TDANN_CKPTS, save_dir=None)
-    unoptimized_data = plot_smoothness_comparison(UNOPTIMIZED_CKPTS, save_dir=None)
-    swapopt_data = plot_smoothness_comparison(SWAPOPT_CKPTS, save_dir=None)
-    onelayer_data = plot_smoothness_comparison(ONELAYER_CKPTS, save_dir=None)
-    
-    # Extract data for each model type
-    all_data = {
-        'HUMAN': model_data['overall_human'],
-        'MODEL': model_data['overall_model'],
-        'TDANN': tdann_data['overall_model'],
-        'UNOPTIMIZED': unoptimized_data['overall_model'],
-        'SWAPOPT': swapopt_data['overall_model'],
-        'ONELAYER': onelayer_data['overall_model']
-    }
-    
-    # Separate moving vs static for each model type
-    all_data_meta = {}
-    for name, data_dict in [('MODEL', model_data), ('TDANN', tdann_data), 
-                            ('UNOPTIMIZED', unoptimized_data), ('SWAPOPT', swapopt_data),
-                            ('ONELAYER', onelayer_data)]:
-        moving_vals_per_model = []
-        static_vals_per_model = []
-        
-        # For each model checkpoint, compute average across categories
-        n_models = len(data_dict['model_by_category'][0])  # Number of model checkpoints
-        
-        for model_idx in range(n_models):
-            moving_avg = []
-            static_avg = []
-            for cat_idx, cat in enumerate(data_dict['categories']):
-                val = data_dict['model_by_category'][cat_idx][model_idx]
-                if 'moving' in cat.lower():
-                    moving_avg.append(val)
-                elif 'static' in cat.lower():
-                    static_avg.append(val)
-            
-            # Each model gets one value per meta category (average across all classes)
-            if moving_avg:
-                moving_vals_per_model.append(np.mean(moving_avg))
-            if static_avg:
-                static_vals_per_model.append(np.mean(static_avg))
-        
-        all_data_meta[name] = {
-            'moving': moving_vals_per_model,
-            'static': static_vals_per_model
-        }
+def _moving_mean_per_model(results):
+    categories = list(results[0].keys())
+    moving_cats = [cat for cat in categories if "moving" in cat.lower()]
+    if not moving_cats:
+        raise ValueError("No moving categories found for smoothness results.")
 
-    MODELS = ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT', 'ONELAYER']
-    MODELS = ['MODEL', 'TDANN', 'UNOPTIMIZED', 'SWAPOPT']
+    model_means = []
+    for res in results:
+        vals = [res[cat]["model_smoothness"] for cat in moving_cats]
+        model_means.append(float(np.mean(vals)))
 
-    # for all models, test moving vs static significance
-    print("\n" + "="*50)
-    print("MOVING vs STATIC SMOOTHNESS COMPARISON")
-    print("="*50)
-    for name in MODELS:
-        moving = all_data_meta[name]['moving']
-        static = all_data_meta[name]['static']
-        t_stat, p_value = stats.ttest_ind(moving, static)
-        print(f"{name:12s} - Moving mean: {np.mean(moving):.4f}, Static mean: {np.mean(static):.4f}, Diff: {np.mean(moving) - np.mean(static):+.4f}, t={t_stat:.3f}, p={p_value:.5f}")      
+    human_vals = [results[0][cat]["human_smoothness"] for cat in moving_cats]
+    human_moving_mean = float(np.mean(human_vals))
+
+    return model_means, human_moving_mean
 
 
-    # for all models, show the difference against human 
-    print("\n" + "="*50)
-    print("MODEL vs HUMAN SMOOTHNESS COMPARISON")
-    print("="*50)
-    for name in MODELS:
-        model_vals = all_data[name]
-        human_vals = all_data['HUMAN']
-        diff = model_vals - human_vals
-        print(f"{name:12s} - Diff mean, std: {np.mean(diff):+.4f}, {np.std(diff):.4f}")
+def _collect_group_moving(ckpt_names, fwhm_mm):
+    results = [
+        smoothness(ckpt_name, DATASET_NAME, fwhm_mm=fwhm_mm, resolution_mm=1.0)
+        for ckpt_name in ckpt_names
+    ]
+    return _moving_mean_per_model(results)
 
-    # Same for human - but human only has one "model" so list will have one value per category
-    human_moving = []
-    human_static = []
-    for i, cat in enumerate(model_data['categories']):
-        if 'moving' in cat.lower():
-            human_moving.append(model_data['human_by_category'][i])
-        elif 'static' in cat.lower():
-            human_static.append(model_data['human_by_category'][i])
-    
-    # For human, we treat each category as a separate "model" for dot display
-    all_data_meta['HUMAN'] = {'moving': human_moving, 'static': human_static}
-    
-    # Create combined comparison plot with moving/static breakdown
-    fig, ax = plt.subplots(1, 1, figsize=(3.4, 3))
-    
-    # Set white background
-    ax.set_facecolor('white')
-    fig.patch.set_facecolor('white')
-    
-    display_labels = ['Human', 'Ours', 'TDANN', 'SwapOpt', 'VJEPA', 'OneLayer']
-    display_labels = display_labels[:1+len(MODELS)]
-    
-    # Reorder data to match display order (Human first, then models)
-    label_order = ['HUMAN'] + MODELS
-    
-    # Colors: green for Human, blue for MODEL (Ours), gray for others
-    colors_moving = [HUMAN_C, MODEL_C, DEFAULT_C, DEFAULT_C, DEFAULT_C, DEFAULT_C]
-    colors_static = ['#8FC794', '#8DB3D6', '#9B9B9B', '#9B9B9B', '#9B9B9B', '#9B9B9B']
-    colors_moving = colors_moving[:1+len(MODELS)]
-    colors_static = colors_static[:1+len(MODELS)]
-    
-    y_pos = np.arange(len(display_labels))
-    bar_height = 0.37
-    
-    # Calculate means for moving and static separately
-    # Each "dot" will be the average over all classes per meta category
-    moving_means = []
-    static_means = []
-    
-    for label in label_order:
-        # Average across all moving categories
-        moving_means.append(np.mean(all_data_meta[label]['moving']))
-        # Average across all static categories
-        static_means.append(np.mean(all_data_meta[label]['static']))
-    
-    # Plot horizontal bars - moving (darker) and static (lighter), exclude Human
-    bars_moving = ax.barh(y_pos[1:] - bar_height/2, moving_means[1:], height=bar_height,
-                          color=colors_moving[1:], alpha=1, edgecolor='none', label='Moving')
-    bars_static = ax.barh(y_pos[1:] + bar_height/2, static_means[1:], height=bar_height,
-                          color=colors_static[1:], alpha=1, edgecolor='none', label='Static')
 
-    # Human reference as vertical dashed lines across the full height
-    ax.axvline(moving_means[0], color=colors_moving[0],
-               linestyle='--', linewidth=2.2, zorder=5)
-    ax.axvline(static_means[0], color=colors_static[0],
-               linestyle='--', linewidth=2.2, zorder=5)
-    
-    # Add data points as black dots (no jitter, one per meta category)
-    dot_offset = 0.12
-    for i in range(len(display_labels)):
-        if i == 0: continue
-        for m in range(n_models):
-            # Moving dot
-            ax.scatter(all_data_meta[label_order[i]]['moving'][m], y_pos[i] - dot_offset,
-                      color='black', s=5, alpha=1, zorder=10, marker='o')
-            # Static dot
-            ax.scatter(all_data_meta[label_order[i]]['static'][m], y_pos[i] + dot_offset,
-                      color='black', s=5, alpha=1, zorder=10, marker='o')
-    
-    # Customize plot
-    ax.set_xlabel('Spatial autocorrelation (Moran\'s I)', fontsize=10, fontweight='normal')
+def _draw_label(ax, x, y, main, sub=None, main_fs=9, sub_fs=6):
+    text_main = ax.text(x, y, main, va="center", ha="left", fontsize=main_fs, color="white")
+    if sub:
+        fig = ax.figure
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        bbox = text_main.get_window_extent(renderer=renderer)
+        inv = ax.transData.inverted()
+        x0, _ = inv.transform((bbox.x0, bbox.y0))
+        x1, _ = inv.transform((bbox.x1, bbox.y1))
+        x_sub = x + (x1 - x0) + 0.005
+        ax.text(x_sub, y, sub, va="center", ha="left", fontsize=sub_fs, color="white")
+
+
+def _plot_model_sheet_map(t_vals, positions, save_path, title):
+    vmax = float(np.nanmax(np.abs(t_vals)))
+    fig, ax = plt.subplots(1, 1, figsize=(3.4, 3.4))
+    ax.scatter(
+        positions[:, 0],
+        positions[:, 1],
+        c=t_vals,
+        cmap="bwr",
+        s=6,
+        marker="s",
+        vmin=-vmax,
+        vmax=vmax,
+        linewidths=0,
+    )
+    ax.set_title(title, fontsize=9)
+    ax.set_aspect("equal", "box")
+    ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_xlim(0, None)
-    
-    # Add white text labels on bars (centered between moving/static)
-    for i, label in enumerate(display_labels):
-        if i == 0: continue
-        ax.text(0.02, y_pos[i], label,
-               va='center', ha='left', fontsize=10, color='white')
-        ax.text(0.27, y_pos[i]-bar_height/2, 'moving',
-               va='center', ha='left', fontsize=8, color='white')
-        ax.text(0.27, y_pos[i]+bar_height/2, 'static',
-               va='center', ha='left', fontsize=8, color='white')
-    
-    # Remove spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    
-    plt.tight_layout()
-    plt.savefig(PLOTS_DIR / f'smoothness_comparison_bar.svg', 
-               dpi=300, bbox_inches='tight', facecolor='white')
+    fig.colorbar(ax.collections[0], ax=ax, fraction=0.046, pad=0.04)
+    savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f"Saved {save_path}")
+
+
+def _plot_human_cortex_map(t_vals, save_path, title, view="dorsal"):
+    from nilearn import datasets, plotting
+    from validate.smoothness import NSD_HIGH
+
+    fsaverage = datasets.fetch_surf_fsaverage("fsaverage5")
+    t_vals = t_vals.copy()
+    t_vals[~NSD_HIGH] = np.nan
+    vmax = float(np.nanmax(np.abs(t_vals)))
+
+    plotting.plot_surf_stat_map(
+        surf_mesh=fsaverage.flat_left,
+        stat_map=t_vals[: len(t_vals) // 2],
+        hemi="left",
+        title=f"{title} (LH)",
+        view=view,
+        colorbar=True,
+        cmap="bwr",
+        vmin=-vmax,
+        vmax=vmax,
+    )
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
-    
-    print(f"\nSaved smoothness comparison plot to {PLOTS_DIR / f'smoothness_comparison_bar.svg'}")
+    print(f"Saved {save_path}")
+
+
+def _plot_smoothness_maps(
+    dataset_name,
+    ckpt_name,
+    category,
+    fwhm_mm,
+    resolution_mm,
+    save_dir,
+    mean_categories=False,
+):
+    from validate import load_transformed_model
+    from validate.floc import validate_floc, validate_floc_human
+    from models import vit_transform
+
+    save_dir = save_dir / "smoothness_maps"
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    model, _ = load_transformed_model(checkpoint_name=ckpt_name, device="cuda")
+    model.eval()
+    with model.smoothing_enabled(fwhm_mm=fwhm_mm, resolution_mm=resolution_mm):
+        model_t_vals_dict = validate_floc(
+            model,
+            vit_transform,
+            dataset_names=[dataset_name],
+            batch_size=32,
+            device="cuda",
+        )[0]
+        positions = model.smoothed_layer_positions[0].coordinates.cpu().numpy()
+        if mean_categories:
+            stacked = [vals[0].flatten() for vals in model_t_vals_dict.values()]
+            model_t_vals = np.nanmean(np.stack(stacked, axis=0), axis=0)
+        else:
+            model_t_vals = model_t_vals_dict[category][0].flatten()
+
+    human_t_vals_dict = validate_floc_human([dataset_name])[0]
+    if mean_categories:
+        stacked = [vals for vals in human_t_vals_dict.values()]
+        human_t_vals = np.nanmean(np.stack(stacked, axis=0), axis=0)
+        map_label = f"{dataset_name}_mean"
+        title_suffix = f"{dataset_name} mean"
+    else:
+        human_t_vals = human_t_vals_dict[category]
+        map_label = category
+        title_suffix = category
+
+    _plot_model_sheet_map(
+        model_t_vals,
+        positions,
+        save_dir / f"model_{dataset_name}_{map_label}.png",
+        title=f"Model {title_suffix}",
+    )
+    _plot_human_cortex_map(
+        human_t_vals,
+        save_dir / f"human_{dataset_name}_{map_label}_lh.png",
+        title=f"Human {title_suffix}",
+        view="dorsal",
+    )
+
+
+def main():
+    groups = [
+        ("UNOPTIMIZED", True, 0.0),
+        ("UNOPTIMIZED", False, DEFAULT_FWHM),
+        ("SWAPOPT", True, 0.0),
+        ("SWAPOPT", False, DEFAULT_FWHM),
+        ("TDANN", True, 0.0),
+        ("TDANN", False, DEFAULT_FWHM),
+        ("TopoTransform", True, 0.0),
+        ("TopoTransform", False, DEFAULT_FWHM),
+        ("ONELAYER", True, 0.0),
+        ("ONELAYER", False, DEFAULT_FWHM),
+    ]
+
+    means = []
+    stds = []
+    all_model_means = []
+    colors = []
+    labels_main = []
+    labels_sub = []
+    human_moving_mean = None
+    group_names = []
+
+    for group_name, no_fmri, fwhm in groups:
+        model_means, human_moving_val = _collect_group_moving(CKPT_GROUPS[group_name], fwhm)
+        means.append(float(np.mean(model_means)))
+        stds.append(float(np.std(model_means)))
+        all_model_means.append(model_means)
+        if human_moving_mean is None:
+            human_moving_mean = human_moving_val
+        group_names.append(group_name)
+        colors.append(METHOD_COLORS.get(group_name, "#808080"))
+        label = METHOD_LABELS.get(group_name, group_name)
+        labels_main.append(label)
+        labels_sub.append("(no smoothing)" if no_fmri else None)
+
+    y_pos = np.arange(len(groups))
+
+    fig, ax = plt.subplots(1, 1, figsize=(2.6, 2.6))
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+
+    ax.barh(y_pos, means, height=0.75, color=colors, edgecolor="none")
+
+    ax.set_xlim(0, 1)
+
+    for idx, model_means in enumerate(all_model_means):
+        ax.scatter(
+            model_means,
+            np.full(len(model_means), y_pos[idx]),
+            color="black",
+            s=8,
+            alpha=1,
+            zorder=10,
+            marker="o",
+        )
+
+    label_x = 0.02
+    for idx, (main, sub) in enumerate(zip(labels_main, labels_sub)):
+        _draw_label(ax, label_x, y_pos[idx], main, sub=sub)
+
+    ax.axvline(human_moving_mean, color="#2E7D32", linestyle="--", linewidth=3.0, zorder=5)
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(
+        [label if sub is None else f"{label} {sub}" for label, sub in zip(labels_main, labels_sub)],
+        fontsize=8,
+    )
+    ax.invert_yaxis()
+    ax.set_yticklabels([])
+    ax.set_xlabel("Spatial autocorrelation (Moran's I)", fontsize=9)
+    ax.tick_params(axis="both", which="major", labelsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.tight_layout()
+    savefig(
+        PLOTS_DIR / "smoothness_comparison_bar.svg",
+        dpi=300,
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    print(f"Saved smoothness comparison plot to {PLOTS_DIR / 'smoothness_comparison_bar.svg'}")
+
+    # grouped plot: no smoothing vs smoothing per method
+    combo_means = {}
+    combo_stds = {}
+    combo_colors = {}
+    for (group_name, no_fmri, _), mean, std in zip(groups, means, stds):
+        key = group_name
+        if key not in combo_means:
+            combo_means[key] = {"no_smoothing": None, "smoothing": None}
+            combo_stds[key] = {"no_smoothing": None, "smoothing": None}
+            combo_colors[key] = METHOD_COLORS.get(group_name, "#808080")
+        if no_fmri:
+            combo_means[key]["no_smoothing"] = mean
+            combo_stds[key]["no_smoothing"] = std
+        else:
+            combo_means[key]["smoothing"] = mean
+            combo_stds[key]["smoothing"] = std
+
+    method_names = list(combo_means.keys())
+    method_labels = [METHOD_LABELS.get(name, name) for name in method_names]
+    x = np.arange(len(method_names))
+    bar_w = 0.36
+
+    fig2, ax2 = plt.subplots(1, 1, figsize=(3.7, 1.9))
+    ax2.set_facecolor("white")
+    fig2.patch.set_facecolor("white")
+
+    no_vals = [combo_means[m]["no_smoothing"] for m in method_names]
+    sm_vals = [combo_means[m]["smoothing"] for m in method_names]
+    no_err = [combo_stds[m]["no_smoothing"] for m in method_names]
+    sm_err = [combo_stds[m]["smoothing"] for m in method_names]
+    base_colors = [combo_colors[m] for m in method_names]
+
+    no_mask = np.array([v is not None for v in no_vals])
+    sm_mask = np.array([v is not None for v in sm_vals])
+
+    ax2.bar(
+        x[no_mask] - bar_w / 2,
+        np.array(no_vals, dtype=float)[no_mask],
+        width=bar_w,
+        color=np.array(base_colors, dtype=object)[no_mask],
+        alpha=0.45,
+        edgecolor="none",
+        label="No smoothing",
+    )
+    ax2.bar(
+        x[sm_mask] + bar_w / 2,
+        np.array(sm_vals, dtype=float)[sm_mask],
+        width=bar_w,
+        color=np.array(base_colors, dtype=object)[sm_mask],
+        alpha=1.0,
+        edgecolor="none",
+        label="Smoothing",
+    )
+
+    ax2.errorbar(
+        x[no_mask] - bar_w / 2,
+        np.array(no_vals, dtype=float)[no_mask],
+        yerr=np.array(no_err, dtype=float)[no_mask],
+        fmt="none",
+        ecolor="#333333",
+        elinewidth=1,
+        capsize=2,
+    )
+    ax2.errorbar(
+        x[sm_mask] + bar_w / 2,
+        np.array(sm_vals, dtype=float)[sm_mask],
+        yerr=np.array(sm_err, dtype=float)[sm_mask],
+        fmt="none",
+        ecolor="#333333",
+        elinewidth=1,
+        capsize=2,
+    )
+
+    ax2.axhline(human_moving_mean, color="#2E7D32", linestyle="--", linewidth=2.5, zorder=5)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(method_labels, fontsize=8, rotation=20, ha="right")
+    ax2.set_ylabel("Spatial autocorrelation (Moran's I)", fontsize=9)
+    ax2.set_xlim(-0.6, len(method_names) - 0.4)
+    ax2.tick_params(axis="both", which="major", labelsize=8)
+    ax2.spines["top"].set_visible(False)
+    ax2.spines["right"].set_visible(False)
+    ax2.legend(frameon=False, fontsize=8, loc="upper left")
+
+    plt.tight_layout()
+    savefig(
+        PLOTS_DIR / "smoothness_comparison_bar_grouped.svg",
+        dpi=300,
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    print(f"Saved grouped smoothness comparison plot to {PLOTS_DIR / 'smoothness_comparison_bar_grouped.svg'}")
+
+    print("\nMODEL vs HUMAN SMOOTHNESS COMPARISON (moving)")
+    for name, mean, std in zip(group_names, means, stds):
+        diff = mean - human_moving_mean
+        print(f"{name:12s} - Diff mean +/- std: {diff:+.4f} +/- {std:.4f}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--plot-maps", action="store_true", help="Plot spatial maps for one category.")
+    parser.add_argument("--map-category", type=str, default=None, help="Category name to plot (e.g., Faces_moving).")
+    parser.add_argument("--map-dataset", type=str, default=DATASET_NAME, help="Dataset name for maps.")
+    parser.add_argument("--map-ckpt", type=str, default=MODEL_CKPT, help="Checkpoint name for model map.")
+    parser.add_argument("--map-fwhm", type=float, default=DEFAULT_FWHM, help="FWHM for model smoothing.")
+    parser.add_argument("--map-resolution", type=float, default=1.0, help="Resolution for model smoothing.")
+    args = parser.parse_args()
+
+    main()
+
+    if args.plot_maps:
+        mean_categories = False
+        if args.map_dataset == "pitcher" and args.map_category is None:
+            mean_categories = True
+        if args.map_category is None and not mean_categories:
+            sample = smoothness(
+                args.map_ckpt,
+                args.map_dataset,
+                fwhm_mm=args.map_fwhm,
+                resolution_mm=args.map_resolution,
+            )
+            categories = [cat for cat in sample.keys() if "moving" in cat.lower()]
+            if not categories:
+                categories = list(sample.keys())
+            args.map_category = categories[0]
+
+        _plot_smoothness_maps(
+            dataset_name=args.map_dataset,
+            ckpt_name=args.map_ckpt,
+            category=args.map_category,
+            fwhm_mm=args.map_fwhm,
+            resolution_mm=args.map_resolution,
+            save_dir=PLOTS_DIR,
+            mean_categories=mean_categories,
+        )

@@ -7,7 +7,7 @@ from validate.correction import fdr, fwe
 from .common import *
 
 
-FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
+FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert', 'konkle']
 LOCALIZER_RERUN = False
 
 def _localizers(
@@ -124,6 +124,16 @@ def _localizers(
                     video_fps=video_fps,
                     ret_pvals=True,
                 )
+            elif dataset_name == "konkle":
+                t_vals_dict, p_vals_dict = localize_konkle(
+                    model,
+                    transform,
+                    batch_size=batch_size,
+                    device=device,
+                    frames_per_video=frames_per_video,
+                    video_fps=video_fps,
+                    ret_pvals=True,
+                )
             else:
                 raise ValueError(f"Unknown dataset_name: {dataset_name}")
 
@@ -223,11 +233,11 @@ def get_localizer_model(rois, ckpt_name, p_thres=LOCALIZER_P_THRESHOLD, t_thres=
             p_vals = p_val_dict["object"]
             t_vals = t_val_dict["object"]
         elif roi == "v6":
-            p_vals = p_val_dict["V6"]
-            t_vals = t_val_dict["V6"]   
+            p_vals = p_val_dict["V6-enhanced"]
+            t_vals = t_val_dict["V6-enhanced"]   
         elif roi == "psts":
-            p_vals = p_val_dict["pSTS"]
-            t_vals = t_val_dict["pSTS"]
+            p_vals = p_val_dict["pSTS-enhanced"]
+            t_vals = t_val_dict["pSTS-enhanced"]
         elif roi == "mt":
             p_vals = p_val_dict["MT-Huk"]
             t_vals = t_val_dict["MT-Huk"]
@@ -249,6 +259,7 @@ def get_localizer_human(rois):
 
     ret = []
     for roi in rois:
+        roi = roi.lower()
         if roi == "face":
             mask = visf.get_region_voxels("faces")
         elif roi == "place":

@@ -9,6 +9,7 @@ from .psts import localize_psts
 from .pitcher import localize_pitcher, localize_pitcher_human
 from .robert import localize_robert, load_robert_tvals, localize_robert_human
 from .afraz import localize_afraz
+from .konkle import localize_konkle, localize_konkle_animacy, localize_konkle_big_small
 
 FLOC_DATASETS = ['vpnl', 'kanwisher', 'pitzalis', 'biomotion', 'pitcher', 'robert']
 

@@ -82,7 +82,7 @@ def get_selectivity_based_stimulation_locations(roi, ckpt_name, fwhm_mm=2.0, res
 
     elif roi == 'face':
         t_vals_dict, p_vals_dict, layer_positions = localizers(ckpt_name, ret_merged=True)
-        t_vals = t_vals_dict['place']
+        t_vals = t_vals_dict['face']
         t_vals = t_vals[0]
         t_vals[:, :, -71:] = -100  # mask out non-central locations
 
@@ -108,7 +108,7 @@ def get_selectivity_based_stimulation_locations(roi, ckpt_name, fwhm_mm=2.0, res
     
     return locations, selecitivities
 
-def get_random_stimulation_locations(model, num_samples=50, seed=42, fwhm_mm=2.0, resolution_mm=1.0):
+def get_random_stimulation_locations(model, num_samples=100, seed=42, fwhm_mm=2.0, resolution_mm=1.0):
     with model.smoothing_enabled(
             fwhm_mm=fwhm_mm, 
             resolution_mm=resolution_mm, 
@@ -137,6 +137,8 @@ def get_random_stimulation_locations(model, num_samples=50, seed=42, fwhm_mm=2.0
     num_neurons = positions.shape[0]
     np.random.seed(seed)
     valid_indices = torch.where(mask)[0].numpy()
+    if len(valid_indices) == 0:
+        raise ValueError("No suprathreshold locations found for random stimulation locations.")
     sampled_indices = np.random.choice(valid_indices, size=min(num_samples, len(valid_indices)), replace=False)
     sampled_positions = positions[sampled_indices]
     locations = sampled_positions.numpy()
